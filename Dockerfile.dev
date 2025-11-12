@@ -1,0 +1,30 @@
+# Development Dockerfile
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Установка зависимостей для Prisma
+RUN apk add --no-cache openssl libc6-compat
+
+# Копируем package files
+COPY package*.json ./
+
+# Устанавливаем зависимости
+RUN npm install
+
+# Копируем Prisma схему
+COPY prisma ./prisma/
+
+# Генерируем Prisma Client
+RUN npx prisma generate
+
+# Копируем всё остальное
+COPY . .
+
+# Открываем порт
+EXPOSE 3000
+EXPOSE 5173
+
+# Запуск в dev режиме
+CMD ["sh", "-c", "npx prisma migrate deploy && npm run dev -- --host 0.0.0.0"]
+

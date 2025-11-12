@@ -1,0 +1,340 @@
+// Prisma Schema для GoodDrive
+// Миграция с Django PostgreSQL на MySQL
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextIndex"]
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== AUTHENTICATION ====================
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique @db.VarChar(255)
+  password  String   @db.VarChar(255)
+  firstName String?  @map("first_name") @db.VarChar(100)
+  lastName  String?  @map("last_name") @db.VarChar(100)
+  isActive  Boolean  @default(true) @map("is_active")
+  isStaff   Boolean  @default(false) @map("is_staff")
+  isAdmin   Boolean  @default(false) @map("is_admin")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  expenses         Expense[]
+  cashTransactions CashTransaction[]
+  customerNotes    CustomerNote[]
+
+  @@map("users")
+}
+
+// ==================== CATALOG ====================
+
+model Brand {
+  id      Int     @id @default(autoincrement())
+  name    String  @unique @db.VarChar(100)
+  country String  @db.VarChar(50)
+  site    String? @db.VarChar(255)
+
+  // Relations
+  parts Part[]
+
+  @@index([name])
+  @@map("catalog_brands")
+}
+
+model Warehouse {
+  id      Int    @id @default(autoincrement())
+  name    String @db.VarChar(200)
+  address String @db.Text
+
+  // Relations
+  parts Part[]
+
+  @@index([name])
+  @@map("catalog_warehouses")
+}
+
+model Part {
+  id                 Int      @id @default(autoincrement())
+  isActive           Boolean  @default(true) @map("is_active")
+  title              String   @db.VarChar(200)
+  label              String?  @db.VarChar(100)
+  originalNumber     String?  @map("original_number") @db.VarChar(50)
+  manufacturerNumber String?  @map("manufacturer_number") @db.VarChar(50)
+  brandId            Int      @map("brand_id")
+  warehouseId        Int      @map("warehouse_id")
+  quantity           Int      @default(0) @db.UnsignedInt
+  stock              Int      @default(0) @db.UnsignedInt
+  reserve            Int      @default(0) @db.UnsignedInt
+  available          Int      @default(0) @db.UnsignedInt
+  priceOpt           Decimal  @map("price_opt") @db.Decimal(10, 2)
+  costPrice          Decimal  @default(0) @map("cost_price") @db.Decimal(10, 2)
+  description        String?  @db.Text
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  brand      Brand       @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  warehouse  Warehouse   @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  images     PartImage[]
+  orderItems OrderItem[]
+
+  // Индексы для оптимизации запросов
+  // Составной индекс для фильтрации по бренду и активности
+  @@index([brandId, isActive])
+  // Составной индекс для фильтрации по складу и активности
+  @@index([warehouseId, isActive])
+  // Индекс для фильтрации по цене
+  @@index([priceOpt])
+  // Индекс для фильтрации по наличию
+  @@index([available])
+  // Индекс для сортировки по дате создания
+  @@index([createdAt])
+  // Индекс для сортировки по дате обновления
+  @@index([updatedAt])
+  // Составной индекс для поиска активных товаров с наличием
+  @@index([isActive, available])
+  // Составной индекс для фильтрации по бренду, активности и наличию
+  @@index([brandId, isActive, available])
+  // Полнотекстовый индекс для поиска (MySQL)
+  // Примечание: MySQL FULLTEXT требует MyISAM или InnoDB с версии 5.6+
+  // Для MySQL 5.7+ можно использовать полнотекстовый индекс
+  @@fulltext([title, originalNumber, manufacturerNumber])
+  @@map("catalog_parts")
+}
+
+model PartImage {
+  id         Int     @id @default(autoincrement())
+  partId     Int     @map("part_id")
+  image      String? @db.VarChar(255)
+  imageUrl   String? @map("image_url") @db.VarChar(500)
+  altText    String? @map("alt_text") @db.VarChar(200)
+  orderIndex Int     @default(0) @map("order_index") @db.UnsignedInt
+
+  // Relations
+  part Part @relation(fields: [partId], references: [id], onDelete: Cascade)
+
+  // Индексы для оптимизации запросов
+  // Индекс для поиска изображений товара
+  @@index([partId])
+  // Индекс для сортировки по порядку
+  @@index([orderIndex])
+  // Составной индекс для получения изображений товара в правильном порядке
+  @@index([partId, orderIndex])
+  @@map("catalog_part_images")
+}
+
+// ==================== ORDERS ====================
+
+model Order {
+  id                  Int      @id @default(autoincrement())
+  orderNumber         String   @unique @map("order_number") @db.VarChar(50)
+  customerName        String   @map("customer_name") @db.VarChar(100)
+  customerPhone       String   @map("customer_phone") @db.VarChar(20)
+  customerEmail       String?  @map("customer_email") @db.VarChar(255)
+  deliveryAddress     String   @map("delivery_address") @db.Text
+  deliveryCity        String   @map("delivery_city") @db.VarChar(100)
+  deliveryPostalCode  String?  @map("delivery_postal_code") @db.VarChar(10)
+  totalAmount         Decimal  @map("total_amount") @db.Decimal(10, 2)
+  status              String   @default("new") @db.VarChar(20)
+  notes               String?  @db.Text
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  items            OrderItem[]
+  statusHistory    OrderStatusHistory[]
+  cashTransactions CashTransaction[]
+
+  @@index([orderNumber])
+  @@index([status])
+  @@index([customerPhone])
+  @@index([createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id        Int     @id @default(autoincrement())
+  orderId   Int     @map("order_id")
+  partId    Int     @map("part_id")
+  partTitle String  @map("part_title") @db.VarChar(200)
+  quantity  Int     @db.UnsignedInt
+  price     Decimal @db.Decimal(10, 2)
+  subtotal  Decimal @db.Decimal(10, 2)
+
+  // Relations
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  part  Part  @relation(fields: [partId], references: [id])
+
+  @@index([orderId])
+  @@index([partId])
+  @@map("order_items")
+}
+
+model OrderStatusHistory {
+  id        Int      @id @default(autoincrement())
+  orderId   Int      @map("order_id")
+  status    String   @db.VarChar(20)
+  comment   String?  @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([createdAt])
+  @@map("order_status_history")
+}
+
+// ==================== CRM ====================
+
+model Customer {
+  id             Int       @id @default(autoincrement())
+  name           String    @db.VarChar(200)
+  phone          String    @unique @db.VarChar(20)
+  email          String?   @db.VarChar(255)
+  city           String?   @db.VarChar(100)
+  address        String?   @db.Text
+  category       String    @default("new") @db.VarChar(20)
+  totalOrders    Int       @default(0) @map("total_orders") @db.UnsignedInt
+  totalSpent     Decimal   @default(0) @map("total_spent") @db.Decimal(12, 2)
+  averageOrder   Decimal   @default(0) @map("average_order") @db.Decimal(10, 2)
+  lastOrderDate  DateTime? @map("last_order_date")
+  notes          String?   @db.Text
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  customerNotes CustomerNote[]
+
+  @@index([phone])
+  @@index([category])
+  @@index([totalSpent])
+  @@index([lastOrderDate])
+  @@map("crm_customers")
+}
+
+model CustomerNote {
+  id         Int      @id @default(autoincrement())
+  customerId Int      @map("customer_id")
+  note       String   @db.Text
+  createdBy  Int?     @map("created_by")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  // Relations
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  user     User?    @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([customerId])
+  @@index([createdAt])
+  @@map("crm_customer_notes")
+}
+
+// ==================== FINANCE ====================
+
+model ExpenseCategory {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique @db.VarChar(100)
+  description String?   @db.Text
+  isActive    Boolean   @default(true) @map("is_active")
+
+  // Relations
+  expenses Expense[]
+
+  @@map("finance_expense_categories")
+}
+
+model Expense {
+  id          Int      @id @default(autoincrement())
+  categoryId  Int      @map("category_id")
+  amount      Decimal  @db.Decimal(10, 2)
+  description String   @db.Text
+  date        DateTime @db.Date
+  createdBy   Int?     @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations
+  category         ExpenseCategory   @relation(fields: [categoryId], references: [id])
+  user             User?             @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  cashTransactions CashTransaction[]
+
+  @@index([categoryId, date])
+  @@index([date])
+  @@map("finance_expenses")
+}
+
+model CashTransaction {
+  id            Int      @id @default(autoincrement())
+  type          String   @db.VarChar(10) // income, expense
+  amount        Decimal  @db.Decimal(10, 2)
+  paymentMethod String   @default("cash") @map("payment_method") @db.VarChar(20)
+  description   String   @db.Text
+  orderId       Int?     @map("order_id")
+  expenseId     Int?     @map("expense_id")
+  date          DateTime
+  createdBy     Int?     @map("created_by")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  // Relations
+  order   Order?   @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  expense Expense? @relation(fields: [expenseId], references: [id], onDelete: SetNull)
+  user    User?    @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([date])
+  @@index([type, date])
+  @@map("finance_cash_transactions")
+}
+
+model ProfitReport {
+  id                 Int      @id @default(autoincrement())
+  date               DateTime @unique @db.Date
+  revenue            Decimal  @default(0) @db.Decimal(12, 2)
+  costOfGoods        Decimal  @default(0) @map("cost_of_goods") @db.Decimal(12, 2)
+  grossProfit        Decimal  @default(0) @map("gross_profit") @db.Decimal(12, 2)
+  operatingExpenses  Decimal  @default(0) @map("operating_expenses") @db.Decimal(12, 2)
+  netProfit          Decimal  @default(0) @map("net_profit") @db.Decimal(12, 2)
+  ordersCount        Int      @default(0) @map("orders_count") @db.UnsignedInt
+  averageOrder       Decimal  @default(0) @map("average_order") @db.Decimal(10, 2)
+  marginPercent      Decimal  @default(0) @map("margin_percent") @db.Decimal(5, 2)
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@index([date])
+  @@map("finance_profit_reports")
+}
+
+// ==================== NOTIFICATIONS ====================
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  type      String   @db.VarChar(50)
+  title     String   @db.VarChar(200)
+  message   String   @db.Text
+  isRead    Boolean  @default(false) @map("is_read")
+  link      String?  @db.VarChar(255)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([isRead, createdAt])
+  @@map("notifications")
+}
+
+// ==================== SEO ====================
+
+model SeoMetadata {
+  id          Int     @id @default(autoincrement())
+  page        String  @unique @db.VarChar(100)
+  title       String  @db.VarChar(200)
+  description String  @db.Text
+  keywords    String? @db.Text
+  ogTitle     String? @map("og_title") @db.VarChar(200)
+  ogDescription String? @map("og_description") @db.Text
+  ogImage     String? @map("og_image") @db.VarChar(500)
+
+  @@map("seo_metadata")
+}
+

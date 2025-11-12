@@ -1,0 +1,230 @@
+/* 
+  Оптимизированная загрузка шрифтов
+  Google Fonts с font-display: swap для лучшей производительности
+*/
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Font face с fallback */
+@layer base {
+  @font-face {
+    font-family: 'Inter var';
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+    src: url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+  }
+}
+
+@layer base {
+  html {
+    font-family: 'Inter', 'Inter var', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    scroll-behavior: smooth;
+    /* Улучшенная читаемость на всех устройствах */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+  
+  body {
+    @apply bg-white text-dark-500 antialiased;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    /* Prevent horizontal scroll */
+    overflow-x: hidden;
+  }
+  
+  * {
+    @apply border-secondary-200;
+  }
+  
+  /* Улучшенные скроллбары */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-secondary-100;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-secondary-300 rounded-full;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-secondary-400;
+  }
+  
+  /* Lazy loading images - плавное появление */
+  img[loading="lazy"] {
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out;
+  }
+  
+  img[loading="lazy"].loaded {
+    opacity: 1;
+  }
+  
+  /* Placeholder для изображений */
+  img:not([src]):not([srcset]) {
+    visibility: hidden;
+  }
+}
+
+@layer components {
+  /* Синий цвет для PNG-иконок (primary-700: #334e68) */
+  .icon-primary {
+    filter: brightness(0) saturate(100%) invert(31%) sepia(15%) saturate(1284%) hue-rotate(178deg) brightness(95%) contrast(87%);
+    transition: filter 200ms ease;
+  }
+  /* При наведении иконки становятся темнее */
+  .group:hover .icon-primary {
+    filter: brightness(0) saturate(100%) invert(20%) sepia(15%) saturate(1284%) hue-rotate(178deg) brightness(85%) contrast(87%);
+  }
+  /* Белые иконки */
+  .icon-white {
+    filter: brightness(0) invert(1);
+  }
+  /* Синий цвет для иконок (legacy support) */
+  .icon-maroon {
+    filter: brightness(0) saturate(100%) invert(31%) sepia(15%) saturate(1284%) hue-rotate(178deg) brightness(95%) contrast(87%);
+    transition: filter 200ms ease;
+  }
+  .group:hover .icon-maroon {
+    filter: brightness(0) saturate(100%) invert(20%) sepia(15%) saturate(1284%) hue-rotate(178deg) brightness(85%) contrast(87%);
+  }
+  .btn {
+    @apply inline-flex items-center justify-center px-6 py-3 text-sm font-medium rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2;
+  }
+  
+  .btn-primary {
+    @apply btn bg-primary-700 text-white shadow-md hover:shadow-lg hover:bg-primary-800 focus:ring-primary-500 transition-colors duration-200;
+  }
+  
+  .btn-secondary {
+    @apply btn bg-gradient-to-r from-secondary-100 to-secondary-200 text-secondary-800 hover:from-secondary-200 hover:to-secondary-300 focus:ring-secondary-500 shadow-sm hover:shadow-md;
+  }
+  
+  .btn-outline {
+    @apply btn border-2 border-primary-300 bg-white text-primary-700 hover:bg-primary-50 hover:border-primary-400 focus:ring-primary-500 shadow-sm hover:shadow-md transition-colors duration-200;
+  }
+  
+  .btn-ghost {
+    @apply btn text-secondary-600 hover:bg-secondary-100 focus:ring-secondary-500;
+  }
+  
+  .input {
+    @apply block w-full px-4 py-3 border-2 border-secondary-200 rounded-xl shadow-sm placeholder-secondary-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all duration-200 bg-white hover:border-secondary-300;
+  }
+  
+  .card {
+    @apply bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200 overflow-hidden;
+  }
+  
+  .card-hover {
+    @apply card hover:scale-105 hover:-translate-y-1;
+  }
+  
+  .container-custom {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+  
+  .section-padding {
+    @apply py-16 lg:py-24;
+  }
+  
+  .text-gradient {
+    @apply text-primary-700;
+  }
+  
+  .glass {
+    @apply bg-white/80 backdrop-blur-sm border border-white/20;
+  }
+  
+  .badge {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-medium;
+  }
+  
+  .badge-primary {
+    @apply badge bg-primary-100 text-primary-800;
+  }
+  
+  .badge-success {
+    @apply badge bg-success-100 text-success-800;
+  }
+  
+  .badge-accent {
+    @apply badge bg-accent-100 text-accent-800;
+  }
+  
+  /* Accessibility: Skip to content link */
+  .skip-to-content {
+    @apply fixed top-0 left-0 z-[9999] px-6 py-3 bg-primary-600 text-white font-semibold rounded-br-xl shadow-2xl;
+    transform: translateY(-100%);
+    transition: transform 0.3s ease-in-out;
+  }
+  
+  .skip-to-content:focus {
+    transform: translateY(0);
+    outline: 3px solid #fff;
+    outline-offset: 2px;
+  }
+  
+  /* Улучшенный focus для accessibility */
+  *:focus-visible {
+    @apply outline-2 outline-offset-2 outline-primary-500;
+  }
+  
+  /* Скрытие элементов для скринридеров */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+  
+  /* Анимация для skeleton loading */
+  @keyframes shimmer {
+    0% {
+      background-position: -1000px 0;
+    }
+    100% {
+      background-position: 1000px 0;
+    }
+  }
+  
+  .animate-shimmer {
+    animation: shimmer 2s infinite linear;
+    background: linear-gradient(to right, #f0f0f0 0%, #e0e0e0 50%, #f0f0f0 100%);
+    background-size: 2000px 100%;
+  }
+}
+
+/* Улучшения для печати */
+@media print {
+  .no-print,
+  header,
+  footer,
+  nav,
+  .btn {
+    display: none !important;
+  }
+  
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  
+  a[href]:after {
+    content: " (" attr(href) ")";
+  }
+}
+

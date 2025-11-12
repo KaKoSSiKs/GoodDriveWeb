@@ -1,0 +1,32 @@
+# Robots.txt для GoodDrive
+User-agent: *
+Allow: /
+Allow: /catalog
+Allow: /product/
+Allow: /cart
+Allow: /checkout
+
+# Блокируем служебные страницы
+Disallow: /admin/
+Disallow: /api/
+
+# Разрешаем поисковым ботам доступ к статическим ресурсам
+Allow: /images/
+Allow: /icons/
+
+# Sitemap
+Sitemap: https://gooddrive.com/sitemap.xml
+
+# Специальные правила для Яндекса
+User-agent: Yandex
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+Crawl-delay: 1
+
+# Специальные правила для Google
+User-agent: Googlebot
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+

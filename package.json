@@ -1,0 +1,51 @@
+{
+  "name": "gooddrive-sveltekit",
+  "version": "1.0.0",
+  "description": "GoodDrive - Full-stack автозапчасти магазин на SvelteKit 5 + Prisma + MySQL",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:deploy": "prisma migrate deploy",
+    "prisma:studio": "prisma studio",
+    "db:seed": "node prisma/seed.js",
+    "db:reset": "prisma migrate reset --force && npm run db:seed",
+    "import:catalog": "node scripts/import-catalog-csv.js",
+    "generate:images": "node scripts/generate-product-images.js"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.7.0",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.2",
+    "lucide-svelte": "^0.468.0",
+    "sharp": "^0.33.5",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@sveltejs/adapter-node": "^4.0.1",
+    "@sveltejs/kit": "^2.0.0",
+    "@sveltejs/vite-plugin-svelte": "^3.0.0",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.5",
+    "@types/node": "^20.10.5",
+    "autoprefixer": "^10.4.16",
+    "postcss": "^8.4.32",
+    "prisma": "^5.7.0",
+    "svelte": "^5.0.0",
+    "svelte-check": "^3.6.2",
+    "tailwindcss": "^3.3.6",
+    "tslib": "^2.6.2",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.8"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  }
+}
