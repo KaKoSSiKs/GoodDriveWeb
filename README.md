@@ -1,11 +1,9 @@
 # GoodDrive - SvelteKit 5 + Prisma + MySQL
 
+
 Монолитное full-stack приложение для интернет-магазина автозапчастей.
 
-
-
 ## 🚀 Технологии
-
 
 - **Frontend/Backend**: SvelteKit 5
 - **Database**: MySQL
