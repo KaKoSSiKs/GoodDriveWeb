@@ -30,6 +30,32 @@ services:
       retries: 10
       start_period: 40s
 
+  # MySQL User Fixer (исправляет пользователя после запуска MySQL)
+  mysql-fixer:
+    image: mysql:8.0
+    container_name: gooddrive-mysql-fixer
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
+      MYSQL_USER: ${MYSQL_USER:-gooddrive_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-gooddrive_password}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-gooddrive_db}
+    networks:
+      - gooddrive-network
+    command: >
+      sh -c "
+        echo '🔧 Исправление пользователя MySQL...' &&
+        until mysqladmin ping -h db -u root -p$${MYSQL_ROOT_PASSWORD:-rootpassword} --silent; do
+          echo '⏳ Ожидание MySQL...' &&
+          sleep 2
+        done &&
+        mysql -h db -u root -p$${MYSQL_ROOT_PASSWORD:-rootpassword} -e \"ALTER USER '$${MYSQL_USER:-gooddrive_user}'@'%' IDENTIFIED WITH mysql_native_password BY '$${MYSQL_PASSWORD:-gooddrive_password}'; GRANT ALL PRIVILEGES ON \`$${MYSQL_DATABASE:-gooddrive_db}\`.* TO '$${MYSQL_USER:-gooddrive_user}'@'%'; FLUSH PRIVILEGES; SELECT User, Host, plugin FROM mysql.user WHERE User = '$${MYSQL_USER:-gooddrive_user}';\" &&
+        echo '✅ Пользователь MySQL исправлен'
+      "
+
   # SvelteKit Application
   app:
     build:
@@ -49,8 +75,9 @@ services:
       - "3000:3000"
     environment:
       # Переменные окружения для runtime
-      # Явно устанавливаем DATABASE_URL для Docker Compose (сервис называется 'db', не 'mysql')
-      DATABASE_URL: mysql://gooddrive_user:gooddrive_password@db:3306/gooddrive_db
+      # DATABASE_URL должен использовать те же переменные, что и MySQL сервис
+      # Важно: используем 'db' как хост (имя сервиса в Docker Compose), а не 'mysql'
+      DATABASE_URL: mysql://${MYSQL_USER:-gooddrive_user}:${MYSQL_PASSWORD:-gooddrive_password}@db:3306/${MYSQL_DATABASE:-gooddrive_db}
       JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
       NODE_ENV: production
       PORT: 3000
@@ -59,6 +86,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      mysql-fixer:
+        condition: service_completed_successfully
     networks:
       - gooddrive-network
     volumes:
