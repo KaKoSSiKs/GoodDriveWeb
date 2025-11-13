@@ -1,17 +1,21 @@
-version: '3.8'
-
 services:
   # MySQL Database
-  mysql:
+  db:
     image: mysql:8.0
-    container_name: gooddrive-mysql
+    container_name: gooddrive-db
     restart: unless-stopped
-    command: --default-authentication-plugin=mysql_native_password
+    command: >
+      --default-authentication-plugin=mysql_native_password
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --max-connections=200
+      --innodb-buffer-pool-size=1G
+      --innodb-log-file-size=256M
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-gooddrive_db}
+      MYSQL_USER: ${MYSQL_USER:-gooddrive_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-gooddrive_password}
     ports:
       - "3306:3306"
     volumes:
@@ -20,52 +24,74 @@ services:
     networks:
       - gooddrive-network
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
-      interval: 10s
+      test: ["CMD", "sh", "-c", "mysqladmin ping -h localhost -u root -p${MYSQL_ROOT_PASSWORD:-rootpassword} && mysql -h localhost -u root -p${MYSQL_ROOT_PASSWORD:-rootpassword} -e 'SELECT 1' ${MYSQL_DATABASE:-gooddrive_db}"]
+      interval: 5s
       timeout: 5s
-      retries: 5
-      start_period: 30s
+      retries: 10
+      start_period: 40s
 
   # SvelteKit Application
   app:
     build:
       context: .
       dockerfile: Dockerfile
+      # ARG для передачи переменных во время сборки (build time)
+      # PUBLIC_* переменные должны быть доступны во время сборки SvelteKit
+      args:
+        PUBLIC_SITE_URL: ${PUBLIC_SITE_URL:-http://localhost:3000}
+        PUBLIC_YM_COUNTER_ID: ${PUBLIC_YM_COUNTER_ID:-}
+        PUBLIC_GA4_ID: ${PUBLIC_GA4_ID:-}
+        PUBLIC_GOOGLE_VERIFICATION: ${PUBLIC_GOOGLE_VERIFICATION:-}
+        PUBLIC_YANDEX_VERIFICATION: ${PUBLIC_YANDEX_VERIFICATION:-}
     container_name: gooddrive-app
     restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
-      DATABASE_URL: ${DATABASE_URL}
-      JWT_SECRET: ${JWT_SECRET}
-      NODE_ENV: ${NODE_ENV}
-      PUBLIC_SITE_URL: ${PUBLIC_SITE_URL}
+      # Переменные окружения для runtime
+      DATABASE_URL: ${DATABASE_URL:-mysql://gooddrive_user:gooddrive_password@db:3306/gooddrive_db}
+      JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
+      NODE_ENV: production
       PORT: 3000
+      # Лимит импорта данных (0 = все строки, по умолчанию 100)
+      IMPORT_LIMIT: ${IMPORT_LIMIT:-100}
     depends_on:
-      mysql:
+      db:
         condition: service_healthy
     networks:
       - gooddrive-network
     volumes:
       - ./static:/app/static
-    command: sh -c "npx prisma migrate deploy && node build/index.js"
-
-  # PhpMyAdmin (опционально, для управления БД)
-  phpmyadmin:
-    image: phpmyadmin:latest
-    container_name: gooddrive-phpmyadmin
-    restart: unless-stopped
-    environment:
-      PMA_HOST: mysql
-      PMA_PORT: 3306
-      PMA_USER: ${MYSQL_USER}
-      PMA_PASSWORD: ${MYSQL_PASSWORD}
-    ports:
-      - "8080:80"
-    depends_on:
-      - mysql
-    networks:
-      - gooddrive-network
+    # Команда запуска: миграции -> импорт данных -> запуск приложения
+    command: >
+      sh -c "
+        echo '🔍 Проверка DATABASE_URL...' &&
+        echo 'DATABASE_URL='$$DATABASE_URL &&
+        echo '' &&
+        echo '⏳ Ожидание готовности MySQL (дополнительная задержка)...' &&
+        sleep 5 &&
+        echo '🚀 Применение миграций Prisma...' &&
+        for i in 1 2 3 4 5; do
+          npm exec prisma migrate deploy && break || {
+            echo '⚠️ Попытка $$i/5 не удалась, повтор через 5 секунд...' &&
+            sleep 5
+          }
+        done &&
+        echo '✅ Миграции применены' &&
+        echo '' &&
+        echo '📦 Импорт данных из CSV...' &&
+        node scripts/import-data.js &&
+        echo '✅ Импорт данных завершен' &&
+        echo '' &&
+        echo '🚀 Запуск приложения...' &&
+        node build/index.js
+      "
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
 volumes:
   mysql_data:
@@ -74,4 +100,3 @@ volumes:
 networks:
   gooddrive-network:
     driver: bridge
-

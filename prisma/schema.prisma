@@ -2,8 +2,7 @@
 // Миграция с Django PostgreSQL на MySQL
 
 generator client {
-  provider        = "prisma-client-js"
-  previewFeatures = ["fullTextIndex"]
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -102,10 +101,13 @@ model Part {
   @@index([isActive, available])
   // Составной индекс для фильтрации по бренду, активности и наличию
   @@index([brandId, isActive, available])
-  // Полнотекстовый индекс для поиска (MySQL)
-  // Примечание: MySQL FULLTEXT требует MyISAM или InnoDB с версии 5.6+
-  // Для MySQL 5.7+ можно использовать полнотекстовый индекс
-  @@fulltext([title, originalNumber, manufacturerNumber])
+  // Индексы для поиска по названию и номерам (замена полнотекстового индекса)
+  // Примечание: В Prisma 5.x требуется preview feature "fullTextIndex" для @@fulltext
+  // Для Prisma 6.0+ fullTextIndex стал стандартной функцией
+  // Используем обычные индексы для поиска вместо @@fulltext
+  @@index([title])
+  @@index([originalNumber])
+  @@index([manufacturerNumber])
   @@map("catalog_parts")
 }
 
