@@ -45,6 +45,8 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE:-gooddrive_db}
     networks:
       - gooddrive-network
+    volumes:
+      - ./scripts/fix-user.sql:/tmp/fix-user.sql:ro
     command: >
       sh -c "
         echo '🔧 Исправление пользователя MySQL...' &&
@@ -52,12 +54,9 @@ services:
           echo '⏳ Ожидание MySQL...' &&
           sleep 2
         done &&
-        mysql -h db -u root -p\"$${MYSQL_ROOT_PASSWORD:-rootpassword}\" <<EOF
-        ALTER USER '$${MYSQL_USER:-gooddrive_user}'@'%' IDENTIFIED WITH mysql_native_password BY '$${MYSQL_PASSWORD:-gooddrive_password}';
-        GRANT ALL PRIVILEGES ON \`$${MYSQL_DATABASE:-gooddrive_db}\`.* TO '$${MYSQL_USER:-gooddrive_user}'@'%';
-        FLUSH PRIVILEGES;
-        SELECT User, Host, plugin FROM mysql.user WHERE User = '$${MYSQL_USER:-gooddrive_user}';
-        EOF
+        cp /tmp/fix-user.sql /tmp/fix-user-temp.sql &&
+        sed -i \"s/gooddrive_user/$${MYSQL_USER:-gooddrive_user}/g; s/gooddrive_password/$${MYSQL_PASSWORD:-gooddrive_password}/g; s/gooddrive_db/$${MYSQL_DATABASE:-gooddrive_db}/g\" /tmp/fix-user-temp.sql &&
+        mysql -h db -u root -p\"$${MYSQL_ROOT_PASSWORD:-rootpassword}\" < /tmp/fix-user-temp.sql 2>/dev/null &&
         echo '✅ Пользователь MySQL исправлен'
       "
 
