@@ -17,11 +17,24 @@
   }
   
   // Обновление количества товара
-  function updateQuantity(itemId, newQuantity) {
+  function updateQuantity(itemId, delta) {
+    const item = cart.find(item => item.id === itemId);
+    if (!item) return;
+    
+    const newQuantity = item.quantity + delta;
     if (newQuantity <= 0) {
       removeItem(itemId);
     } else {
-      cart = cartUtils.updateQuantity(itemId, newQuantity);
+      // Проверяем доступное количество
+      const available = item.available || 0;
+      const actualQuantity = Math.min(newQuantity, available);
+      
+      if (actualQuantity < newQuantity) {
+        // Показываем предупреждение, если пытаемся добавить больше доступного
+        alert(`Недостаточно товара. Доступно: ${available} шт.`);
+      }
+      
+      cart = cartUtils.updateQuantity(itemId, actualQuantity);
     }
   }
   
@@ -46,6 +59,20 @@
   // Инициализация
   onMount(() => {
     loadCart();
+    
+    // Слушаем изменения корзины
+    if (typeof window !== 'undefined') {
+      window.addEventListener('cartUpdated', loadCart);
+    }
+  });
+  
+  // Очистка при размонтировании
+  $effect(() => {
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('cartUpdated', loadCart);
+      }
+    };
   });
 </script>
 
@@ -119,26 +146,33 @@
                   </div>
                   
                   <!-- Управление количеством -->
-                  <div class="flex items-center space-x-2">
-                    <button
-                      onclick={() => updateQuantity(item.id, item.quantity - 1)}
-                      class="w-8 h-8 rounded-full border border-neutral-300 flex items-center justify-center hover:bg-neutral-50"
-                    >
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" />
-                      </svg>
-                    </button>
-                    
-                    <span class="w-12 text-center font-medium">{item.quantity}</span>
-                    
-                    <button
-                      onclick={() => updateQuantity(item.id, item.quantity + 1)}
-                      class="w-8 h-8 rounded-full border border-neutral-300 flex items-center justify-center hover:bg-neutral-50"
-                    >
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                      </svg>
-                    </button>
+                  <div class="flex flex-col items-center space-y-1">
+                    <div class="flex items-center space-x-2">
+                      <button
+                        onclick={() => updateQuantity(item.id, -1)}
+                        class="w-8 h-8 rounded-full border border-neutral-300 flex items-center justify-center hover:bg-neutral-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                        disabled={item.quantity <= 1}
+                      >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" />
+                        </svg>
+                      </button>
+                      
+                      <span class="w-12 text-center font-medium">{item.quantity}</span>
+                      
+                      <button
+                        onclick={() => updateQuantity(item.id, 1)}
+                        class="w-8 h-8 rounded-full border border-neutral-300 flex items-center justify-center hover:bg-neutral-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                        disabled={item.quantity >= (item.available || 0)}
+                      >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                      </button>
+                    </div>
+                    {#if item.available !== undefined && item.available > 0}
+                      <span class="text-xs text-neutral-500">Доступно: {item.available} шт.</span>
+                    {/if}
                   </div>
                   
                   <!-- Общая цена -->

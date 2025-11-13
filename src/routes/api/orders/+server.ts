@@ -151,6 +151,10 @@ export const POST: RequestHandler = async ({ request }) => {
 		if (!data.items || !Array.isArray(data.items) || data.items.length === 0) {
 			errors.push('Корзина пуста');
 		}
+		// Проверка согласия на обработку персональных данных (обязательно)
+		if (!data.consentPd || data.consentPd !== true) {
+			errors.push('Необходимо дать согласие на обработку персональных данных');
+		}
 
 		if (errors.length > 0) {
 			console.error('Order validation failed:', errors);
@@ -202,6 +206,112 @@ export const POST: RequestHandler = async ({ request }) => {
 				comment: 'Заказ создан'
 			}
 		});
+
+		// Update stock: move items to reserve and update available quantity
+		try {
+			for (const item of order.items) {
+				// Get current part data
+				const part = await prisma.part.findUnique({
+					where: { id: item.partId }
+				});
+
+				if (!part) {
+					console.error(`Part not found: ${item.partId}`);
+					continue;
+				}
+
+				// Update reserve and available
+				// Резерв увеличиваем на количество заказанного товара
+				const newReserve = part.reserve + item.quantity;
+				// Доступное количество = склад - резерв
+				const newAvailable = Math.max(0, part.stock - newReserve);
+
+				await prisma.part.update({
+					where: { id: item.partId },
+					data: {
+						reserve: newReserve,
+						available: newAvailable
+					}
+				});
+
+				// Логируем обновление остатков
+				console.log(`Updated stock for part ${item.partId}: stock=${part.stock}, reserve=${newReserve}, available=${newAvailable}`);
+			}
+		} catch (stockUpdateError) {
+			// Log error but don't fail the order creation
+			console.error('Failed to update stock:', stockUpdateError);
+		}
+
+		// Create or update customer in CRM
+		try {
+			// Ищем клиента по телефону
+			let customer = await prisma.customer.findUnique({
+				where: { phone: data.customerPhone }
+			});
+
+			if (!customer) {
+				// Создаем нового клиента
+				customer = await prisma.customer.create({
+					data: {
+						name: data.customerName,
+						phone: data.customerPhone,
+						email: data.customerEmail || null,
+						city: data.deliveryCity || null,
+						address: data.deliveryAddress || null,
+						totalOrders: 1,
+						totalSpent: totalAmount,
+						averageOrder: totalAmount,
+						lastOrderDate: order.createdAt,
+						category: 'new' // 1 заказ = новый клиент
+					}
+				});
+				console.log(`Created new customer: ${customer.id} - ${customer.name}`);
+			} else {
+				// Обновляем существующего клиента
+				const newTotalOrders = customer.totalOrders + 1;
+				const newTotalSpent = parseFloat(customer.totalSpent.toString()) + totalAmount;
+				const newAverageOrder = newTotalSpent / newTotalOrders;
+				
+				// Определяем категорию: 1 заказ = новый, 2+ = постоянный
+				// Если было 1 заказ, теперь станет 2, значит постоянный клиент
+				const newCategory = newTotalOrders === 1 ? 'new' : 'regular';
+
+				customer = await prisma.customer.update({
+					where: { id: customer.id },
+					data: {
+						name: data.customerName, // Обновляем имя на случай изменения
+						email: data.customerEmail || customer.email,
+						city: data.deliveryCity || customer.city,
+						address: data.deliveryAddress || customer.address,
+						totalOrders: newTotalOrders,
+						totalSpent: newTotalSpent,
+						averageOrder: newAverageOrder,
+						lastOrderDate: order.createdAt,
+						category: newCategory
+					}
+				});
+				console.log(`Updated customer: ${customer.id} - ${customer.name}, orders: ${newTotalOrders}, category: ${newCategory}`);
+			}
+		} catch (customerError) {
+			// Log error but don't fail the order creation
+			console.error('Failed to create/update customer:', customerError);
+		}
+
+		// Create notification for admin
+		try {
+			await prisma.notification.create({
+				data: {
+					type: 'new_order',
+					title: 'Новый заказ',
+					message: `Заказ №${order.orderNumber} на сумму ${totalAmount.toFixed(2)} ₽ от ${data.customerName}`,
+					link: `/admin/orders/${order.id}`,
+					isRead: false
+				}
+			});
+		} catch (notificationError) {
+			// Log error but don't fail the order creation
+			console.error('Failed to create notification:', notificationError);
+		}
 
 		return json<ApiResponse>({
 			success: true,

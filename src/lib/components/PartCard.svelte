@@ -5,7 +5,8 @@
   let {
     part,
     showWarehouse = false,
-    compact = false
+    compact = false,
+    isPopular = false // Флаг популярности товара (топ 100)
   } = $props();
   
   // Реактивное состояние
@@ -19,16 +20,13 @@
   let imageAlt = $derived(part.images?.[0]?.alt_text || part.title);
   let brandName = $derived(part.brand?.name || part.brand_name || 'Неизвестный');
   let warehouseName = $derived(part.warehouse?.name || part.warehouse_name || '');
-  let isInStock = $derived(part.available > 0);
+  let isInStock = $derived((Number(part.available) || 0) > 0);
+  // Убираем статус "Мало на складе" - показываем только "Нет в наличии" или ничего
   let stockStatus = $derived(
-    part.available === 0 ? 'Нет в наличии' :
-    part.available <= 5 ? 'Мало на складе' :
-    'В наличии'
+    (Number(part.available) || 0) === 0 ? 'Нет в наличии' : null
   );
   let stockStatusClass = $derived(
-    part.available === 0 ? 'bg-red-100 text-red-800' :
-    part.available <= 5 ? 'badge-accent' :
-    'badge-success'
+    (Number(part.available) || 0) === 0 ? 'bg-red-100 text-red-800' : ''
   );
   
   // Обработчики
@@ -80,11 +78,24 @@
         </div>
       {/if}
       
-      <!-- Статус наличия -->
-      <div class="absolute top-3 right-3">
-        <span class="badge {stockStatusClass}" role="status" aria-label="{stockStatus}">
-          {stockStatus}
-        </span>
+      <!-- Бейджи: Хит продаж (если товар в топе) и статус наличия (только если нет в наличии) -->
+      <div class="absolute top-3 right-3 flex flex-col gap-2 items-end">
+        <!-- Хит продаж - только для топ 100 товаров -->
+        {#if isPopular}
+          <span class="badge bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg font-bold px-3 py-1.5 text-xs uppercase tracking-wide" role="status" aria-label="Хит продаж">
+            <svg class="w-4 h-4 inline-block mr-1" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+            </svg>
+            Хит продаж
+          </span>
+        {/if}
+        
+        <!-- Статус наличия - только если товар отсутствует -->
+        {#if stockStatus}
+          <span class="badge {stockStatusClass}" role="status" aria-label="{stockStatus}">
+            {stockStatus}
+          </span>
+        {/if}
       </div>
     </div>
   </a>

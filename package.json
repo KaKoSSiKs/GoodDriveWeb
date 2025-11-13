@@ -16,6 +16,7 @@
     "prisma:studio": "prisma studio",
     "db:seed": "node prisma/seed.js",
     "db:reset": "prisma migrate reset --force && npm run db:seed",
+    "create:admin": "node scripts/create-admin.js",
     "import:catalog": "node scripts/import-catalog-csv.js",
     "generate:images": "node scripts/generate-product-images.js"
   },

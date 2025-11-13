@@ -9,14 +9,20 @@ import { logger } from '$lib/server/logger';
 
 export const handle: Handle = async ({ event, resolve }) => {
 	// Rate limiting для API endpoints
+	// Отключаем rate limiting для авторизации в development для удобства тестирования
+	// Можно включить через переменную окружения ENABLE_AUTH_RATE_LIMIT=true
+	const enableAuthRateLimit = process.env.ENABLE_AUTH_RATE_LIMIT === 'true';
+	const isAuthEndpoint = event.url.pathname.startsWith('/api/auth/login') || event.url.pathname.startsWith('/api/auth/register');
+	
+	// Rate limiting для API (кроме авторизации, если не включен явно)
 	if (event.url.pathname.startsWith('/api/')) {
 		try {
-			// Специальный rate limiter для авторизации
-			if (event.url.pathname.startsWith('/api/auth/login') || event.url.pathname.startsWith('/api/auth/register')) {
+			// Rate limiting для авторизации (только если включен явно)
+			if (isAuthEndpoint && enableAuthRateLimit) {
 				const key = getRateLimitKey(event, 'auth');
 				await authRateLimiter.consume(key);
-			} else {
-				// Общий rate limiter для API
+			} else if (!isAuthEndpoint) {
+				// Общий rate limiter для остальных API endpoints
 				const key = getRateLimitKey(event, 'api');
 				await apiRateLimiter.consume(key);
 			}
@@ -25,7 +31,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 				const retryAfter = error.details?.retryAfter || 60;
 				const response = createErrorResponse(error);
 				response.headers.set('Retry-After', String(retryAfter));
-				response.headers.set('X-RateLimit-Limit', event.url.pathname.startsWith('/api/auth') ? '5' : '100');
+				response.headers.set('X-RateLimit-Limit', isAuthEndpoint ? '5' : '100');
 				response.headers.set('X-RateLimit-Remaining', '0');
 				response.headers.set('X-RateLimit-Reset', String(Math.floor(Date.now() / 1000) + retryAfter));
 				return response;

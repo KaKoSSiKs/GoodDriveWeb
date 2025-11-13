@@ -84,8 +84,30 @@
   // Обработка отправки формы
   async function handleSubmit(event) {
     event.preventDefault();
+    event.stopPropagation();
+    
+    // Ранняя проверка согласия на обработку ПД - если нет, сразу выходим
+    if (!form.consent_pd) {
+      errors.consent_pd = 'Необходимо дать согласие на обработку персональных данных';
+      // Прокручиваем к блоку с согласием
+      const consentElement = document.getElementById('consent_pd');
+      if (consentElement) {
+        consentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        consentElement.focus();
+      }
+      return;
+    }
     
     if (!validateForm()) {
+      // Если валидация не прошла, прокручиваем к первой ошибке
+      const firstErrorField = Object.keys(errors)[0];
+      if (firstErrorField) {
+        const errorElement = document.getElementById(firstErrorField);
+        if (errorElement) {
+          errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          errorElement.focus();
+        }
+      }
       return;
     }
     
@@ -104,6 +126,7 @@
         deliveryCity: form.delivery_city.trim(),
         deliveryPostalCode: form.delivery_postal_code.trim() || undefined,
         notes: form.notes.trim() || undefined,
+        consentPd: form.consent_pd, // Обязательно отправляем согласие на обработку ПД
         items: cart.map(item => ({
           partId: item.id,
           title: item.title,
@@ -220,7 +243,23 @@
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <!-- Форма -->
         <div class="lg:col-span-2">
-          <form onsubmit={handleSubmit} class="space-y-8">
+          <form 
+            onsubmit={handleSubmit} 
+            onkeydown={(e) => {
+              // Предотвращаем отправку формы через Enter, если галочка не проставлена
+              if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA' && !form.consent_pd) {
+                e.preventDefault();
+                errors.consent_pd = 'Необходимо дать согласие на обработку персональных данных';
+                const consentElement = document.getElementById('consent_pd');
+                if (consentElement) {
+                  consentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  consentElement.focus();
+                }
+                return false;
+              }
+            }}
+            class="space-y-8"
+          >
             <!-- Контактная информация -->
             <div class="card p-6">
               <h2 class="text-xl font-semibold text-neutral-900 mb-6">Контактная информация</h2>
@@ -347,15 +386,25 @@
             </div>
             
             <!-- Согласие на обработку персональных данных -->
-            <div class="card p-6">
+            <div class="card p-6 {errors.consent_pd ? 'border-2 border-red-300' : ''}">
               <div class="flex items-start space-x-3">
                 <input
                   type="checkbox"
                   id="consent_pd"
                   bind:checked={form.consent_pd}
-                  class="mt-1 w-5 h-5 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+                  onchange={() => {
+                    // Убираем ошибку при изменении состояния чекбокса
+                    if (form.consent_pd) {
+                      if (errors.consent_pd) {
+                        delete errors.consent_pd;
+                        errors = { ...errors };
+                      }
+                    }
+                  }}
+                  class="mt-1 w-5 h-5 text-primary-600 border-gray-300 rounded focus:ring-primary-500 {errors.consent_pd ? 'border-red-500' : ''}"
+                  required
                 />
-                <label for="consent_pd" class="text-sm text-neutral-700">
+                <label for="consent_pd" class="text-sm text-neutral-700 cursor-pointer">
                   Я даю согласие на обработку моих персональных данных в соответствии с 
                   <a href="/privacy" target="_blank" class="text-primary-600 hover:underline">Политикой конфиденциальности</a> 
                   и принимаю условия 
@@ -364,7 +413,7 @@
                 </label>
               </div>
               {#if errors.consent_pd}
-                <p class="text-red-500 text-sm mt-2 ml-8">{errors.consent_pd}</p>
+                <p class="text-red-500 text-sm mt-2 ml-8 font-medium">{errors.consent_pd}</p>
               {/if}
             </div>
             
@@ -379,8 +428,23 @@
             <div class="flex flex-col sm:flex-row gap-4">
               <button
                 type="submit"
-                disabled={isSubmitting}
-                class="btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isSubmitting || !form.consent_pd || isEmpty}
+                onclick={(e) => {
+                  // Дополнительная проверка при клике
+                  if (!form.consent_pd) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    errors.consent_pd = 'Необходимо дать согласие на обработку персональных данных';
+                    const consentElement = document.getElementById('consent_pd');
+                    if (consentElement) {
+                      consentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      consentElement.focus();
+                    }
+                    return false;
+                  }
+                }}
+                class="flex-1 px-6 py-3 text-sm font-medium rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed {form.consent_pd && !isEmpty ? 'btn-primary' : 'bg-gray-400 text-white hover:bg-gray-400 focus:ring-gray-500 cursor-not-allowed'}"
+                aria-disabled={!form.consent_pd || isEmpty}
               >
                 {isSubmitting ? 'Оформление заказа...' : 'Оформить заказ'}
               </button>

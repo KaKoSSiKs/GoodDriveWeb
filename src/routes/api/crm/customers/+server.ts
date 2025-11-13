@@ -5,20 +5,25 @@ import { prisma } from '$lib/server/db';
 
 export const GET: RequestHandler = async ({ url }) => {
 	try {
-		const limit = parseInt(url.searchParams.get('limit') || '100');
+		const limit = parseInt(url.searchParams.get('limit') || url.searchParams.get('page_size') || '100');
 		const page = parseInt(url.searchParams.get('page') || '1');
 		const search = url.searchParams.get('search') || '';
+		const category = url.searchParams.get('category') || '';
 		const skip = (page - 1) * limit;
 
-		const where = search
-			? {
-					OR: [
-						{ name: { contains: search } },
-						{ phone: { contains: search } },
-						{ email: { contains: search } }
-					]
-			  }
-			: {};
+		const where: any = {};
+		
+		// Поиск
+		if (search) {
+			where.OR = [
+				{ name: { contains: search } },
+				{ phone: { contains: search } },
+				{ email: { contains: search } }
+			];
+		}
+		
+		// Фильтр по категории (но категория вычисляется динамически из totalOrders)
+		// Поэтому не фильтруем по category в базе, а фильтруем после получения данных
 
 		const customers = await prisma.customer.findMany({
 			where,
@@ -35,18 +40,39 @@ export const GET: RequestHandler = async ({ url }) => {
 
 		const total = await prisma.customer.count({ where });
 
-		return json({
-			success: true,
-			count: customers.length,
-			total,
-			results: customers.map((c) => ({
+		// Функция для определения категории и отображения
+		const getCategoryInfo = (totalOrders: number, category: string) => {
+			// Определяем категорию: 1 заказ = новый, 2+ = постоянный
+			if (totalOrders === 1) {
+				return { category: 'new', category_display: 'Новый клиент' };
+			} else if (totalOrders >= 2) {
+				return { category: 'regular', category_display: 'Постоянный клиент' };
+			}
+			// Fallback на существующую категорию
+			const categoryDisplay = {
+				'new': 'Новый клиент',
+				'regular': 'Постоянный клиент',
+				'vip': 'VIP клиент',
+				'inactive': 'Неактивный клиент'
+			};
+			return { 
+				category: category || 'new', 
+				category_display: categoryDisplay[category as keyof typeof categoryDisplay] || 'Новый клиент'
+			};
+		};
+
+		// Преобразуем клиентов и определяем категории
+		let mappedCustomers = customers.map((c) => {
+			const categoryInfo = getCategoryInfo(c.totalOrders, c.category);
+			return {
 				id: c.id,
 				name: c.name,
 				phone: c.phone,
 				email: c.email,
 				city: c.city,
 				address: c.address,
-				category: c.category,
+				category: categoryInfo.category,
+				category_display: categoryInfo.category_display,
 				totalOrders: c.totalOrders,
 				total_orders: c.totalOrders, // для совместимости
 				totalSpent: parseFloat(c.totalSpent.toString()),
@@ -58,9 +84,21 @@ export const GET: RequestHandler = async ({ url }) => {
 				notesCount: c.customerNotes.length,
 				createdAt: c.createdAt,
 				created_at: c.createdAt // для совместимости
-			})),
+			};
+		});
+
+		// Фильтруем по категории после определения категорий
+		if (category) {
+			mappedCustomers = mappedCustomers.filter(c => c.category === category);
+		}
+
+		return json({
+			success: true,
+			count: mappedCustomers.length,
+			total: category ? mappedCustomers.length : total,
+			results: mappedCustomers,
 			page,
-			pages: Math.ceil(total / limit)
+			pages: Math.ceil((category ? mappedCustomers.length : total) / limit)
 		});
 	} catch (error) {
 		console.error('Failed to fetch customers:', error);

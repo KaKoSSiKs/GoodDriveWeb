@@ -1,6 +1,6 @@
-import { db } from '$lib/server/db';
+import { prisma } from '$lib/server/db';
 import type { RequestHandler } from './$types';
-import { PUBLIC_SITE_URL } from '$env/static/public';
+import { env } from '$env/dynamic/public';
 
 export const prerender = false;
 
@@ -8,20 +8,21 @@ export const GET: RequestHandler = async () => {
 	try {
 		// Используем environment variable для base URL
 		// В development будет localhost, в production - реальный домен
-		const baseUrl = PUBLIC_SITE_URL || 'http://localhost:3000';
+		// Используем dynamic env для поддержки отсутствующего значения при сборке
+		const baseUrl = env.PUBLIC_SITE_URL || 'http://localhost:3000';
 		const buildDate = new Date().toUTCString();
 
 		// Получаем последние 50 товаров
-		const parts = await db.part.findMany({
+		const parts = await prisma.part.findMany({
 			take: 50,
 			select: {
 				id: true,
 				title: true,
 				description: true,
-				price_opt: true,
+				priceOpt: true,
 				available: true,
-				created_at: true,
-				updated_at: true,
+				createdAt: true,
+				updatedAt: true,
 				brand: {
 					select: {
 						name: true
@@ -30,17 +31,21 @@ export const GET: RequestHandler = async () => {
 				images: {
 					take: 1,
 					select: {
-						image_url: true
+						imageUrl: true
+					},
+					orderBy: {
+						orderIndex: 'asc'
 					}
 				}
 			},
 			where: {
+				isActive: true,
 				available: {
 					gt: 0
 				}
 			},
 			orderBy: {
-				created_at: 'desc'
+				createdAt: 'desc'
 			}
 		});
 
@@ -62,9 +67,9 @@ export const GET: RequestHandler = async () => {
 		
 		${parts
 			.map((part) => {
-				const imageUrl = part.images[0]?.image_url || '';
+				const imageUrl = part.images[0]?.imageUrl || '';
 				const description = part.description || `${part.title} от ${part.brand.name}`;
-				const pubDate = new Date(part.created_at).toUTCString();
+				const pubDate = new Date(part.createdAt).toUTCString();
 
 				return `
 		<item>
@@ -81,7 +86,7 @@ export const GET: RequestHandler = async () => {
 					${imageUrl ? `<img src="${escapeXml(imageUrl)}" alt="${escapeXml(part.title)}" style="max-width: 400px; height: auto;"/>` : ''}
 					<h2>${escapeXml(part.title)}</h2>
 					<p><strong>Бренд:</strong> ${escapeXml(part.brand.name)}</p>
-					<p><strong>Цена:</strong> ${part.price_opt} ₽</p>
+					<p><strong>Цена:</strong> ${part.priceOpt} ₽</p>
 					<p><strong>Наличие:</strong> ${part.available} шт</p>
 					<p>${escapeXml(description)}</p>
 					<p><a href="${baseUrl}/product/${part.id}">Подробнее →</a></p>

@@ -2,8 +2,9 @@
 import { z } from 'zod';
 
 // Валидация body для POST /api/auth/login
+// Принимаем как email, так и обычный текст (для логина типа "admin")
 export const loginSchema = z.object({
-	email: z.string().email().max(255),
+	email: z.string().min(1).max(255), // Убираем .email() чтобы принимать "admin" как логин
 	password: z.string().min(6).max(255)
 });
 

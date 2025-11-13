@@ -13,9 +13,16 @@ if (-not $dockerInstalled) {
 
 # Check .env file
 if (-not (Test-Path .env)) {
-    Write-Host "WARNING: .env file not found. Creating from .env.example..." -ForegroundColor Yellow
-    Copy-Item .env.example .env
-    Write-Host "SUCCESS: .env file created." -ForegroundColor Green
+    if (Test-Path .env.example) {
+        Write-Host "WARNING: .env file not found. Creating from .env.example..." -ForegroundColor Yellow
+        Copy-Item .env.example .env
+        Write-Host "SUCCESS: .env file created." -ForegroundColor Green
+        Write-Host "NOTE: Please review and update .env file with your configuration." -ForegroundColor Yellow
+    } else {
+        Write-Host "ERROR: .env file not found and .env.example does not exist." -ForegroundColor Red
+        Write-Host "Please create .env file manually with required environment variables." -ForegroundColor Red
+        exit 1
+    }
 }
 
 Write-Host "Starting Docker Compose..." -ForegroundColor Cyan

@@ -32,11 +32,13 @@ const handler: RequestHandler = async ({ url }) => {
 		
 		if (searchTerms.length > 0) {
 			// Если одно слово - простой поиск
+			// MySQL по умолчанию регистронезависим для utf8mb4_unicode_ci collation
 			if (searchTerms.length === 1) {
+				const term = searchTerms[0];
 				where.OR = [
-					{ title: { contains: searchTerms[0] } },
-					{ originalNumber: { contains: searchTerms[0] } },
-					{ manufacturerNumber: { contains: searchTerms[0] } }
+					{ title: { contains: term } },
+					{ originalNumber: { contains: term } },
+					{ manufacturerNumber: { contains: term } }
 				];
 			} else {
 				// Если несколько слов - все должны быть найдены (AND)
@@ -75,7 +77,8 @@ const handler: RequestHandler = async ({ url }) => {
 	// Фильтр по наличию (объединяем все условия для available)
 	const availableConditions: any = {};
 	
-	if (in_stock) {
+	// Если in_stock = true, показываем только товары с available > 0
+	if (in_stock === true) {
 		availableConditions.gt = 0;
 	}
 	
@@ -88,9 +91,21 @@ const handler: RequestHandler = async ({ url }) => {
 	
 	if (available_max !== undefined) {
 		availableConditions.lte = available_max;
+		// Если available_max = 0 и in_stock не установлен, показываем только товары с available = 0
+		if (available_max === 0 && in_stock !== true) {
+			availableConditions.gt = undefined;
+			availableConditions.gte = 0;
+			availableConditions.lte = 0;
+		}
 	}
 	
 	if (Object.keys(availableConditions).length > 0) {
+		// Удаляем undefined значения
+		Object.keys(availableConditions).forEach(key => {
+			if (availableConditions[key] === undefined) {
+				delete availableConditions[key];
+			}
+		});
 		where.available = availableConditions;
 	}
 
@@ -171,10 +186,10 @@ const handler: RequestHandler = async ({ url }) => {
 		brand_name: part.brand?.name || '',
 		warehouse: part.warehouse,
 		warehouse_name: part.warehouse?.name || '',
-		quantity: part.quantity,
-		stock: part.stock,
-		reserve: part.reserve,
-		available: part.available,
+		quantity: part.quantity ?? 0,
+		stock: part.stock ?? 0,
+		reserve: part.reserve ?? 0,
+		available: part.available ?? 0,
 		price_opt: part.priceOpt.toFixed(2),
 		cost_price: part.costPrice.toFixed(2),
 		description: part.description,

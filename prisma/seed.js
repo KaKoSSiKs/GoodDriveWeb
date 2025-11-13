@@ -8,13 +8,18 @@ async function main() {
 	console.log('🌱 Seeding database...\n');
 
 	// Create admin user
-	const hashedPassword = await bcrypt.hash('admin123', 10);
+	const hashedPassword = await bcrypt.hash('12345678', 10);
 	
 	const admin = await prisma.user.upsert({
-		where: { email: 'admin@gooddrive.com' },
-		update: {},
+		where: { email: 'admin' },
+		update: {
+			password: hashedPassword,
+			isAdmin: true,
+			isStaff: true,
+			isActive: true
+		},
 		create: {
-			email: 'admin@gooddrive.com',
+			email: 'admin',
 			password: hashedPassword,
 			firstName: 'Admin',
 			lastName: 'User',
@@ -25,7 +30,7 @@ async function main() {
 	});
 
 	console.log('✓ Created admin user:', admin.email);
-	console.log('  Password: admin123');
+	console.log('  Password: 12345678');
 
 	// Create expense categories
 	const categories = await prisma.expenseCategory.createMany({
@@ -198,8 +203,8 @@ async function main() {
 
 	console.log('\n✅ Seeding completed!\n');
 	console.log('Login credentials:');
-	console.log('  Email: admin@gooddrive.com');
-	console.log('  Password: admin123');
+	console.log('  Email: admin');
+	console.log('  Password: 12345678');
 	console.log('\nTest data:');
 	console.log(`  - ${brands.length} brands`);
 	console.log(`  - ${warehouses.length} warehouses`);

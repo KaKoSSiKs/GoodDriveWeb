@@ -1,6 +1,6 @@
 import { prisma } from '$lib/server/db';
 import type { RequestHandler } from './$types';
-import { PUBLIC_SITE_URL } from '$env/static/public';
+import { env } from '$env/dynamic/public';
 import { logger } from '$lib/server/logger';
 import { handleError, createErrorResponse } from '$lib/server/error-handler';
 
@@ -19,7 +19,8 @@ function escapeXml(unsafe: string): string {
 export const GET: RequestHandler = async () => {
 	try {
 		// Используем environment variable для base URL
-		const baseUrl = PUBLIC_SITE_URL || 'http://localhost:3000';
+		// Используем dynamic env для поддержки отсутствующего значения при сборке
+		const baseUrl = env.PUBLIC_SITE_URL || 'http://localhost:3000';
 		const today = new Date().toISOString().split('T')[0];
 
 		// Параллельные запросы для оптимизации

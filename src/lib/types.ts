@@ -45,5 +45,6 @@ export interface CheckoutData {
 	deliveryPostalCode?: string;
 	notes?: string;
 	items: CartItem[];
+	consentPd: boolean; // Согласие на обработку персональных данных (обязательно)
 }
 

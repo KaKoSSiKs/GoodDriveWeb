@@ -23,7 +23,30 @@
 	const brandCountry = $derived(part?.brand?.country || '');
 	const warehouseName = $derived(part?.warehouse?.name || '');
 	const isInStock = $derived(part?.available > 0);
-	const maxQuantity = $derived(Math.min(part?.available || 0, 99));
+	
+	// Реактивное состояние корзины
+	let cartItems = $state(cartUtils.getCart());
+	
+	// Получаем количество товара уже в корзине
+	const cartQuantity = $derived(() => {
+		if (!part) return 0;
+		const cartItem = cartItems.find(item => item.id === part.id);
+		return cartItem ? cartItem.quantity : 0;
+	});
+	
+	// Максимальное количество = доступное количество минус уже в корзине
+	const maxQuantity = $derived(() => {
+		if (!part) return 0;
+		const available = part.available || 0;
+		const inCart = cartQuantity;
+		return Math.max(0, Math.min(available - inCart, 99));
+	});
+	
+	// Обновляем корзину при изменении
+	function updateCart() {
+		cartItems = cartUtils.getCart();
+	}
+	
 	const price = $derived(parseFloat(part?.price_opt) || 0);
 	const totalPrice = $derived(price * quantity);
 
@@ -69,10 +92,11 @@
 
 	// Добавление в корзину
 	function handleAddToCart() {
-		if (!part || !isInStock || isAddingToCart) return;
+		if (!part || !isInStock || isAddingToCart || maxQuantity() <= 0) return;
 
 		isAddingToCart = true;
 		cartUtils.addToCart(part, quantity);
+		updateCart(); // Обновляем состояние корзины
 		
 		// Показываем уведомление
 		showNotification = true;
@@ -85,8 +109,12 @@
 	// Изменение количества
 	function updateQuantity(delta) {
 		const newQuantity = quantity + delta;
-		if (newQuantity >= 1 && newQuantity <= maxQuantity) {
+		const maxQty = maxQuantity();
+		if (newQuantity >= 1 && newQuantity <= maxQty) {
 			quantity = newQuantity;
+		} else if (newQuantity > maxQty) {
+			// Ограничиваем максимальным доступным количеством
+			quantity = maxQty;
 		}
 	}
 
@@ -98,6 +126,21 @@
 	// Инициализация
 	onMount(() => {
 		loadPart();
+		updateCart();
+		
+		// Слушаем изменения корзины
+		if (typeof window !== 'undefined') {
+			window.addEventListener('cartUpdated', updateCart);
+		}
+	});
+	
+	// Очистка при размонтировании
+	$effect(() => {
+		return () => {
+			if (typeof window !== 'undefined') {
+				window.removeEventListener('cartUpdated', updateCart);
+			}
+		};
 	});
 
 	// Загрузка похожих при изменении товара
@@ -331,13 +374,18 @@
 							type="number"
 							bind:value={quantity}
 							min="1"
-							max={maxQuantity}
+							max={maxQuantity()}
+							onchange={(e) => {
+								const val = parseInt(e.target.value) || 1;
+								const max = maxQuantity();
+								quantity = Math.min(Math.max(1, val), max);
+							}}
 							class="flex-1 text-center text-2xl font-bold text-gray-900 border-2 border-gray-200 rounded-xl py-2 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition-all"
 						/>
 						
 						<button
 							onclick={() => updateQuantity(1)}
-							disabled={quantity >= maxQuantity}
+							disabled={quantity >= maxQuantity()}
 							class="w-12 h-12 flex items-center justify-center rounded-xl border-2 border-gray-200 hover:border-primary-500 hover:bg-primary-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
 						>
 							<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -345,8 +393,14 @@
 							</svg>
 						</button>
 					</div>
-					{#if maxQuantity < 99}
-						<p class="text-xs text-gray-500 mt-2">Максимум: {maxQuantity} шт</p>
+					{#if maxQuantity() > 0 && maxQuantity() < 99}
+						<p class="text-xs text-gray-500 mt-2">Максимум: {maxQuantity()} шт.</p>
+					{/if}
+					{#if cartQuantity > 0}
+						<p class="text-xs text-orange-600 mt-2">В корзине: {cartQuantity} шт.</p>
+					{/if}
+					{#if maxQuantity() === 0 && part?.available > 0}
+						<p class="text-xs text-red-600 mt-2">Весь товар уже в корзине</p>
 					{/if}
 				</div>
 
@@ -363,9 +417,9 @@
 				<!-- Кнопка В корзину -->
 				<button
 					onclick={handleAddToCart}
-					disabled={!isInStock || isAddingToCart}
+					disabled={!isInStock || isAddingToCart || maxQuantity() <= 0}
 					class="w-full py-4 rounded-xl font-bold text-lg transition-all duration-300 flex items-center justify-center gap-3
-						   {isInStock 
+						   {isInStock && maxQuantity() > 0
 						     ? 'bg-gradient-to-r from-primary-500 to-primary-600 text-white hover:from-primary-600 hover:to-primary-700 hover:shadow-2xl hover:scale-105 active:scale-95' 
 						     : 'bg-gray-200 text-gray-500 cursor-not-allowed'}"
 				>
@@ -375,11 +429,16 @@
 							<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
 						</svg>
 						Добавление...
-					{:else if isInStock}
+					{:else if isInStock && maxQuantity() > 0}
 						<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
 						</svg>
 						Добавить в корзину
+					{:else if maxQuantity() === 0 && part?.available > 0}
+						<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+						</svg>
+						Весь товар в корзине
 					{:else}
 						<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>

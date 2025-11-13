@@ -26,6 +26,22 @@ setInterval(() => {
 }, 5 * 60 * 1000);
 
 /**
+ * Очистить все записи rate limit (для разработки и тестирования)
+ */
+export function clearRateLimitStore(): void {
+	rateLimitStore.clear();
+	logger.info('Rate limit store cleared');
+}
+
+/**
+ * Очистить rate limit для конкретного ключа
+ */
+export function clearRateLimit(key: string): void {
+	rateLimitStore.delete(key);
+	logger.info('Rate limit cleared for key', { key });
+}
+
+/**
  * Простой rate limiter
  */
 export class RateLimiter {
@@ -84,9 +100,11 @@ export const apiRateLimiter = new RateLimiter({
 	duration: 60 // за 60 секунд
 });
 
+// Для development увеличиваем лимит, для production оставляем строгий
+const isDevelopment = process.env.NODE_ENV === 'development';
 export const authRateLimiter = new RateLimiter({
-	points: 5, // 5 попыток
-	duration: 900 // за 15 минут
+	points: isDevelopment ? 100 : 5, // 100 попыток в development, 5 в production
+	duration: isDevelopment ? 60 : 900 // 1 минута в development, 15 минут в production
 });
 
 export const sitemapRateLimiter = new RateLimiter({

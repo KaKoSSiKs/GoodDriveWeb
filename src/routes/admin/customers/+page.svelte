@@ -82,7 +82,7 @@
           </thead>
           <tbody>
             {#each customers as customer}
-              <tr class="border-t border-gray-100 hover:bg-gray-50">
+              <tr class="border-t border-gray-100 hover:bg-gray-50 cursor-pointer" onclick={() => window.location.href = `/admin/customers/${customer.id}`}>
                 <td class="py-3 px-4 text-sm font-medium text-gray-900">{customer.name}</td>
                 <td class="py-3 px-4 text-sm text-gray-600">{customer.phone}</td>
                 <td class="py-3 px-4">
@@ -92,12 +92,12 @@
                     customer.category === 'new' ? 'bg-green-100 text-green-700' :
                     'bg-gray-100 text-gray-700'
                   }">
-                    {customer.category_display}
+                    {customer.category_display || (customer.total_orders === 1 ? 'Новый клиент' : customer.total_orders >= 2 ? 'Постоянный клиент' : 'Новый клиент')}
                   </span>
                 </td>
-                <td class="py-3 px-4 text-sm text-gray-900 text-right">{customer.total_orders}</td>
-                <td class="py-3 px-4 text-sm font-semibold text-gray-900 text-right">{formatUtils.formatPrice(Number(customer.total_spent))}</td>
-                <td class="py-3 px-4 text-sm text-gray-600 text-right">{formatUtils.formatPrice(Number(customer.average_order))}</td>
+                <td class="py-3 px-4 text-sm text-gray-900 text-right">{customer.total_orders || 0}</td>
+                <td class="py-3 px-4 text-sm font-semibold text-gray-900 text-right">{formatUtils.formatPrice(Number(customer.total_spent || 0))}</td>
+                <td class="py-3 px-4 text-sm text-gray-600 text-right">{formatUtils.formatPrice(Number(customer.average_order || 0))}</td>
                 <td class="py-3 px-4 text-sm text-gray-600">
                   {customer.last_order_date ? new Date(customer.last_order_date).toLocaleDateString('ru-RU') : '-'}
                 </td>

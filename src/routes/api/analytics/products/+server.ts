@@ -77,13 +77,24 @@ export const GET: RequestHandler = async ({ url }) => {
 			}
 		});
 
+		// Общее количество единиц на складе (сумма всех stock)
+		// Используем агрегацию Prisma для получения суммы
+		const stockAggregate = await prisma.part.aggregate({
+			where: { isActive: true },
+			_sum: {
+				stock: true
+			}
+		});
+		const totalStock = stockAggregate._sum.stock || 0;
+
 		return json({
 			success: true,
 			topProducts,
 			topBrands,
 			totalProducts,
 			lowStock,
-			outOfStock
+			outOfStock,
+			totalStock
 		});
 	} catch (error) {
 		console.error('Failed to fetch product analytics:', error);

@@ -42,8 +42,8 @@
       const response = await notificationsApi.getUnreadCount();
       const newCount = response.count || 0;
       
-      // Если количество увеличилось - воспроизводим звук
-      if (newCount > lastCount && lastCount > 0) {
+      // Если количество увеличилось - воспроизводим звук (играем звук при любом новом уведомлении)
+      if (newCount > lastCount && lastCount >= 0) {
         playNotificationSound();
       }
       

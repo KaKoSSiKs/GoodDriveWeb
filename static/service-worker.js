@@ -1,5 +1,5 @@
 // Service Worker для PWA GoodDrive
-const CACHE_NAME = 'gooddrive-v1';
+const CACHE_NAME = 'gooddrive-v2'; // Обновлена версия для очистки кэша
 const urlsToCache = [
   '/',
   '/catalog',

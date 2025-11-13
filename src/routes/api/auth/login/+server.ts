@@ -17,14 +17,31 @@ const handler: RequestHandler = async ({ request, cookies }) => {
 	try {
 		loginData = loginSchema.parse(body);
 	} catch (error) {
+		// Логируем детали ошибки валидации для отладки
+		if (error && typeof error === 'object' && 'issues' in error) {
+			const zodError = error as any;
+			const errorMessages = zodError.issues?.map((issue: any) => 
+				`${issue.path.join('.')}: ${issue.message}`
+			).join(', ') || 'Validation failed';
+			
+			logger.warn('Login validation failed', {
+				body,
+				issues: zodError.issues,
+				errorMessage: errorMessages
+			});
+			
+			// Используем более информативное сообщение об ошибке
+			throw new ValidationError(`Validation failed: ${errorMessages}`, zodError.issues);
+		}
 		throw new ValidationError('Invalid email or password format', error);
 	}
 
 	const { email, password } = loginData;
 
-	// Find user
+	// Find user (email может быть как email, так и логин типа "admin")
+	const normalizedEmail = email.toLowerCase().trim();
 	const user = await prisma.user.findUnique({
-		where: { email: email.toLowerCase() }
+		where: { email: normalizedEmail }
 	});
 
 	if (!user || !user.isActive) {

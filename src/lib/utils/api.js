@@ -204,19 +204,39 @@ export const cartUtils = {
     const cart = this.getCart();
     const existingItem = cart.find(item => item.id === part.id);
     
+    // Получаем доступное количество товара
+    const available = typeof part.available === 'number' ? part.available : (typeof part.quantity === 'number' ? part.quantity : 0);
+    
     if (existingItem) {
-      existingItem.quantity += quantity;
+      // Товар уже в корзине - проверяем доступное количество
+      const currentQuantity = existingItem.quantity;
+      const requestedQuantity = currentQuantity + quantity;
+      
+      // Ограничиваем доступным количеством
+      if (requestedQuantity > available) {
+        existingItem.quantity = available;
+        console.warn(`Недостаточно товара. Доступно: ${available}, уже в корзине: ${currentQuantity}, запрошено дополнительно: ${quantity}`);
+      } else {
+        existingItem.quantity = requestedQuantity;
+      }
+      // Обновляем доступное количество в корзине
+      existingItem.available = available;
     } else {
+      // Новый товар - проверяем доступное количество
+      const actualQuantity = Math.min(quantity, available);
+      if (actualQuantity < quantity) {
+        console.warn(`Недостаточно товара. Доступно: ${available}, запрошено: ${quantity}`);
+      }
+      
       const brandName = part.brand_name || part.brand?.name || '';
       const imageUrl = part.main_image?.url || part.images?.[0]?.image_url || null;
-      const available = typeof part.available === 'number' ? part.available : (typeof part.quantity === 'number' ? part.quantity : 0);
       cart.push({
         id: part.id,
         title: part.title,
         brand: brandName,
         price: parseFloat(part.price_opt),
         image: imageUrl,
-        quantity: quantity,
+        quantity: actualQuantity,
         available: available,
       });
     }
@@ -234,7 +254,14 @@ export const cartUtils = {
       if (quantity <= 0) {
         this.removeFromCart(partId);
       } else {
-        item.quantity = quantity;
+        // Проверяем доступное количество
+        const available = item.available || 0;
+        // Ограничиваем количеством доступным
+        const actualQuantity = Math.min(quantity, available);
+        if (actualQuantity < quantity) {
+          console.warn(`Недостаточно товара. Доступно: ${available}, запрошено: ${quantity}`);
+        }
+        item.quantity = actualQuantity;
         this.saveCart(cart);
         this.notifyCartUpdate();
       }

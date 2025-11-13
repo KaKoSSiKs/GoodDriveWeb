@@ -31,7 +31,7 @@
     try {
       isLoading = true;
       const params = {
-        ordering: 'available',
+        ordering: '-created_at', // Сначала получаем все товары
         page_size: 1000 // Увеличено для отображения большего количества товаров
       };
       
@@ -49,7 +49,53 @@
         response = await partsApi.getParts(params);
       }
       
-      parts = response.results || [];
+      // Сортируем товары: сначала товары с резервом (reserve > 0), затем остальные
+      // Внутри каждой группы сортируем по резерву (по убыванию), затем по доступному количеству
+      const sortedParts = (response.results || []).map(part => {
+        // Явное преобразование в числа с проверкой
+        const stock = part.stock !== null && part.stock !== undefined ? Number(part.stock) : 0;
+        const reserve = part.reserve !== null && part.reserve !== undefined ? Number(part.reserve) : 0;
+        const available = part.available !== null && part.available !== undefined ? Number(part.available) : 0;
+        
+        return {
+          ...part,
+          stock: isNaN(stock) ? 0 : stock,
+          reserve: isNaN(reserve) ? 0 : reserve,
+          available: isNaN(available) ? 0 : available
+        };
+      }).sort((a, b) => {
+        const aReserve = a.reserve;
+        const bReserve = b.reserve;
+        const aAvailable = a.available;
+        const bAvailable = b.available;
+        
+        // Товары с резервом идут первыми
+        if (aReserve > 0 && bReserve === 0) return -1;
+        if (aReserve === 0 && bReserve > 0) return 1;
+        
+        // Если оба в резерве, сортируем по резерву (по убыванию), затем по доступному количеству
+        if (aReserve > 0 && bReserve > 0) {
+          if (bReserve !== aReserve) return bReserve - aReserve;
+          return bAvailable - aAvailable;
+        }
+        
+        // Если оба не в резерве, сортируем по доступному количеству (по убыванию)
+        return bAvailable - aAvailable;
+      });
+      
+      parts = sortedParts;
+      
+      // Отладочное логирование (удалить в production)
+      if (sortedParts.length > 0) {
+        console.log('Загружено товаров:', sortedParts.length);
+        console.log('Пример товара:', {
+          id: sortedParts[0].id,
+          title: sortedParts[0].title,
+          stock: sortedParts[0].stock,
+          reserve: sortedParts[0].reserve,
+          available: sortedParts[0].available
+        });
+      }
     } catch (error) {
       console.error('Ошибка загрузки товаров:', error);
     } finally {
@@ -297,15 +343,22 @@
           </thead>
           <tbody>
             {#each parts as part}
-              <tr class="border-t border-gray-100 hover:bg-gray-50 cursor-pointer" onclick={() => handlePartClick(part)}>
+              <tr class="border-t border-gray-100 hover:bg-gray-50 cursor-pointer {(part.reserve || 0) > 0 ? 'bg-orange-50 hover:bg-orange-100' : ''}" onclick={() => handlePartClick(part)}>
                 <td class="py-3 px-3 max-w-[300px]">
                   <div class="flex items-center space-x-2">
-                    {#if part.main_image?.url}
-                      <img src={part.main_image.url} alt={part.title} class="w-10 h-10 object-cover rounded-lg flex-shrink-0" />
+                    {#if part.images && part.images.length > 0 && part.images[0].image_url}
+                      <img src={part.images[0].image_url} alt={part.title} class="w-10 h-10 object-cover rounded-lg flex-shrink-0" />
                     {:else}
                       <div class="w-10 h-10 bg-gray-200 rounded-lg flex-shrink-0"></div>
                     {/if}
-                    <p class="text-xs font-medium text-primary-600 hover:text-primary-700 line-clamp-2 leading-tight">{part.title}</p>
+                    <div class="flex-1 min-w-0">
+                      <p class="text-xs font-medium text-primary-600 hover:text-primary-700 line-clamp-2 leading-tight">{part.title}</p>
+                      {#if (part.reserve || 0) > 0}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800 mt-1">
+                          В резерве: {part.reserve || 0} шт.
+                        </span>
+                      {/if}
+                    </div>
                   </div>
                 </td>
                 <td class="py-3 px-3">
@@ -313,24 +366,50 @@
                     {part.original_number || part.manufacturer_number || '-'}
                   </span>
                 </td>
-                <td class="py-3 px-3 text-xs text-gray-600">{part.brand_name}</td>
+                <td class="py-3 px-3 text-xs text-gray-600">{part.brand_name || '-'}</td>
                 <td class="py-3 px-3 text-xs text-gray-600 max-w-[150px]">
-                  <span class="line-clamp-2 leading-tight">{part.warehouse_name}</span>
+                  <span class="line-clamp-2 leading-tight">{part.warehouse_name || '-'}</span>
                 </td>
-                <td class="py-3 px-2 text-xs text-center text-gray-900 font-medium">{part.stock}</td>
-                <td class="py-3 px-2 text-xs text-center text-gray-600">{part.reserve}</td>
-                <td class="py-3 px-2 text-center">
-                  <span class="text-xs font-semibold {
-                    part.available === 0 ? 'text-red-600' :
-                    part.available <= 3 ? 'text-orange-600' :
-                    part.available <= 10 ? 'text-yellow-600' :
-                    'text-green-600'
-                  }">
-                    {part.available}
+                <td class="py-3 px-2 text-xs text-center">
+                  <span class="font-medium text-gray-900 whitespace-nowrap">
+                    {part.stock !== null && part.stock !== undefined ? part.stock : 0} шт.
                   </span>
                 </td>
+                <td class="py-3 px-2 text-xs text-center">
+                  <div class="flex flex-col items-center">
+                    {#if (part.reserve || 0) > 0}
+                      <span class="font-semibold whitespace-nowrap text-orange-700">
+                        {part.reserve || 0} шт.
+                      </span>
+                      <span class="text-xs text-orange-600 mt-0.5" title="Товар в резерве">⚠️</span>
+                    {:else}
+                      <span class="font-semibold whitespace-nowrap text-gray-700">
+                        {part.reserve || 0} шт.
+                      </span>
+                    {/if}
+                  </div>
+                </td>
+                <td class="py-3 px-2 text-center">
+                  {#if (part.available || 0) === 0}
+                    <span class="text-xs font-semibold whitespace-nowrap text-red-600">
+                      {part.available || 0} шт.
+                    </span>
+                  {:else if (part.available || 0) <= 3}
+                    <span class="text-xs font-semibold whitespace-nowrap text-orange-600">
+                      {part.available || 0} шт.
+                    </span>
+                  {:else if (part.available || 0) <= 10}
+                    <span class="text-xs font-semibold whitespace-nowrap text-yellow-600">
+                      {part.available || 0} шт.
+                    </span>
+                  {:else}
+                    <span class="text-xs font-semibold whitespace-nowrap text-green-600">
+                      {part.available || 0} шт.
+                    </span>
+                  {/if}
+                </td>
                 <td class="py-3 px-3 text-xs font-medium text-gray-900 text-right whitespace-nowrap">
-                  {formatUtils.formatPrice(Number(part.price_opt))}
+                  {formatUtils.formatPrice(Number(part.price_opt) || 0)}
                 </td>
               </tr>
             {/each}

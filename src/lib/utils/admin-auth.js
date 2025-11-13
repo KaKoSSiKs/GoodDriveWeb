@@ -95,9 +95,15 @@ export const adminAuth = {
 
   /**
    * Проверка авторизации (синхронно)
+   * Проверяет наличие токена и что пользователь является администратором
    */
   isAuthenticated() {
-    return !!this.getToken();
+    const token = this.getToken();
+    if (!token) return false;
+    
+    // Проверяем, что пользователь является администратором
+    const user = this.getUser();
+    return user && user.isAdmin === true;
   }
 };
 

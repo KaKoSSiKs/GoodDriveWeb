@@ -39,6 +39,7 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       JWT_SECRET: ${JWT_SECRET}
       NODE_ENV: ${NODE_ENV}
+      PUBLIC_SITE_URL: ${PUBLIC_SITE_URL}
       PORT: 3000
     depends_on:
       mysql:
