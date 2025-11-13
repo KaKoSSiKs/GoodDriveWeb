@@ -92,21 +92,88 @@
       if (filters.warehouse) {
         params.warehouse = filters.warehouse;
       }
-      if (filters.price_min) {
-        params.price_min = parseFloat(filters.price_min);
+      if (filters.price_min && filters.price_min.trim()) {
+        const priceMin = parseFloat(filters.price_min);
+        if (!isNaN(priceMin) && priceMin >= 0) {
+          params.price_min = priceMin;
+        }
       }
-      if (filters.price_max) {
-        params.price_max = parseFloat(filters.price_max);
+      if (filters.price_max && filters.price_max.trim()) {
+        const priceMax = parseFloat(filters.price_max);
+        if (!isNaN(priceMax) && priceMax >= 0) {
+          params.price_max = priceMax;
+        }
       }
       
       // Загружаем все товары с фильтрами (но без ограничения по наличию)
-      const data = await partsApi.getParts({
-        page: 1,
-        page_size: 1000,
-        ...params
+      // Очищаем пустые значения из параметров
+      const cleanParams = {};
+      Object.keys(params).forEach(key => {
+        const value = params[key];
+        // Пропускаем пустые строки, null, undefined
+        if (value !== '' && value !== null && value !== undefined) {
+          // Для числовых параметров проверяем, что это валидное число
+          if ((key === 'price_min' || key === 'price_max') && value !== '') {
+            const numValue = parseFloat(value);
+            if (!isNaN(numValue) && numValue >= 0) {
+              cleanParams[key] = numValue;
+            }
+          } else {
+            cleanParams[key] = value;
+          }
+        }
       });
       
-      let allParts = data.results || [];
+      // Удаляем page_size из cleanParams, если он там есть, чтобы использовать наш фиксированный размер
+      delete cleanParams.page_size;
+      delete cleanParams.page; // Также удаляем page, так как мы всегда используем page: 1
+      
+      console.log('Загрузка товаров с параметрами:', cleanParams);
+      const data = await partsApi.getParts({
+        page: 1,
+        page_size: 100, // Используем максимальное допустимое значение
+        ...cleanParams
+      });
+      
+      console.log('Получены данные от API:', { 
+        hasData: !!data, 
+        dataType: typeof data,
+        dataKeys: data ? Object.keys(data) : [],
+        hasResults: !!(data?.results), 
+        resultsCount: data?.results?.length || 0,
+        totalCount: data?.count || 0,
+        fullData: data
+      });
+      
+      // Обрабатываем различные форматы ответа
+      let allParts = [];
+      if (data) {
+        if (Array.isArray(data)) {
+          // Если ответ - массив напрямую
+          allParts = data;
+        } else if (Array.isArray(data.results)) {
+          // Стандартный формат с results
+          allParts = data.results;
+        } else if (Array.isArray(data.data)) {
+          // Альтернативный формат с data
+          allParts = data.data;
+        } else if (data.results && typeof data.results === 'object' && !Array.isArray(data.results)) {
+          // Если results это объект, пытаемся извлечь массив
+          console.warn('Неожиданный формат results:', data.results);
+          allParts = [];
+        }
+      }
+      
+      if (!Array.isArray(allParts)) {
+        console.error('Ошибка: не удалось извлечь массив товаров из ответа:', {
+          data,
+          allParts,
+          allPartsType: typeof allParts
+        });
+        allParts = [];
+      }
+      
+      console.log('Извлечено товаров:', allParts.length);
       
       // Сортируем товары:
       // 1. Сначала популярные (из топ 100) в наличии
@@ -170,11 +237,35 @@
 
       totalPages = Math.ceil(sortedParts.length / 12);
       totalCount = sortedParts.length;
+      
+      console.log('Товары обработаны:', {
+        allPartsCount: allParts.length,
+        sortedPartsCount: sortedParts.length,
+        paginatedPartsCount: paginatedParts.length,
+        currentPage,
+        totalPages,
+        totalCount
+      });
     } catch (error) {
       console.error('Ошибка загрузки товаров:', error);
       console.error('Детали ошибки:', error.message, error.stack);
+      
+      // Определяем тип ошибки для более понятного сообщения
+      let errorMessage = 'Ошибка загрузки товаров. Попробуйте позже.';
+      if (error.message) {
+        if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+          errorMessage = 'Ошибка подключения к серверу. Проверьте подключение к интернету.';
+        } else if (error.message.includes('Database') || error.message.includes('Prisma')) {
+          errorMessage = 'Ошибка подключения к базе данных. Обратитесь к администратору.';
+        } else if (error.message.includes('Validation')) {
+          errorMessage = 'Ошибка валидации данных. Попробуйте обновить страницу.';
+        } else {
+          errorMessage = `Ошибка: ${error.message}`;
+        }
+      }
+      
       // Показываем уведомление об ошибке
-      alert('Ошибка загрузки товаров. Попробуйте позже.');
+      alert(errorMessage);
       parts = [];
       totalCount = 0;
       totalPages = 1;

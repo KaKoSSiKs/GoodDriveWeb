@@ -43,7 +43,7 @@
           stats.lowStock = stockStats.totalStock;
         } else {
           // Если API не поддерживает, считаем через запрос всех товаров
-          const allPartsResponse = await partsApi.getParts({ page_size: 10000 });
+          const allPartsResponse = await partsApi.getParts({ page_size: 100 });
           const totalStock = (allPartsResponse.results || []).reduce((sum, part) => {
             return sum + (typeof part.stock === 'number' ? part.stock : 0);
           }, 0);
@@ -53,7 +53,7 @@
         console.error('Ошибка загрузки статистики склада:', error);
         // Fallback: считаем через запрос всех товаров
         try {
-          const allPartsResponse = await partsApi.getParts({ page_size: 10000 });
+          const allPartsResponse = await partsApi.getParts({ page_size: 100 });
           const totalStock = (allPartsResponse.results || []).reduce((sum, part) => {
             return sum + (typeof part.stock === 'number' ? part.stock : 0);
           }, 0);

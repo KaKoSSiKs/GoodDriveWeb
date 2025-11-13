@@ -26,9 +26,9 @@ export const partsQuerySchema = z.object({
 	]).optional(),
 	price_min: z.coerce.number().nonnegative().optional(),
 	price_max: z.coerce.number().nonnegative().optional(),
-	low_stock: z.coerce.boolean().optional(),
+	low_stock: z.boolean().optional(),
 	available_max: z.coerce.number().int().nonnegative().optional(),
-	in_stock: z.coerce.boolean().optional(),
+	in_stock: z.boolean().optional(),
 	ordering: z
 		.enum([
 			'created_at',

@@ -10,14 +10,58 @@ import type { Prisma } from '@prisma/client';
 
 // Валидация и обработка запроса
 const handler: RequestHandler = async ({ url }) => {
-	// Валидация query параметров
-	const queryParams = Object.fromEntries(url.searchParams.entries());
+	try {
+		// Валидация query параметров
+		const queryParams: Record<string, any> = Object.fromEntries(url.searchParams.entries());
+	
+	// Преобразуем boolean параметры из строк в boolean перед валидацией
+	// Если параметр присутствует в URL, преобразуем его в boolean, иначе удаляем
+	if ('in_stock' in queryParams) {
+		const value = queryParams.in_stock;
+		if (value === 'true' || value === '1' || value === true || value === 1) {
+			queryParams.in_stock = true;
+		} else if (value === 'false' || value === '0' || value === false || value === 0) {
+			queryParams.in_stock = false;
+		} else {
+			// Если значение не распознано, удаляем параметр
+			delete queryParams.in_stock;
+		}
+	}
+	
+	if ('low_stock' in queryParams) {
+		const value = queryParams.low_stock;
+		if (value === 'true' || value === '1' || value === true || value === 1) {
+			queryParams.low_stock = true;
+		} else if (value === 'false' || value === '0' || value === false || value === 0) {
+			queryParams.low_stock = false;
+		} else {
+			// Если значение не распознано, удаляем параметр
+			delete queryParams.low_stock;
+		}
+	}
 	
 	let params;
 	try {
 		params = partsQuerySchema.parse(queryParams);
 	} catch (error) {
-		throw new ValidationError('Invalid query parameters', error);
+		// Детальная информация об ошибке валидации
+		let errorDetails = 'Invalid query parameters';
+		if (error && typeof error === 'object' && 'issues' in error) {
+			const zodError = error as any;
+			const issues = zodError.issues?.map((issue: any) => {
+				const path = issue.path?.join('.') || 'unknown';
+				return `${path}: ${issue.message}`;
+			}).join(', ') || 'Unknown validation error';
+			errorDetails = `Validation failed: ${issues}`;
+		}
+		
+		logger.error('Validation error', { 
+			error: error instanceof Error ? error.message : error,
+			errorDetails,
+			queryParams,
+			url: url.toString()
+		});
+		throw new ValidationError(errorDetails, error);
 	}
 
 	const { page, page_size, search, brand, warehouse, price_min, price_max, low_stock, available_max, in_stock, ordering } = params;
@@ -139,41 +183,53 @@ const handler: RequestHandler = async ({ url }) => {
 	}
 
 	// Параллельные запросы для оптимизации
-	const [total, parts] = await Promise.all([
-		prisma.part.count({ where }),
-		prisma.part.findMany({
-			where,
-			skip: (page - 1) * page_size,
-			take: page_size,
-			orderBy: orderBy.length > 0 ? orderBy : [{ createdAt: 'desc' }],
-			include: {
-				brand: {
-					select: {
-						id: true,
-						name: true,
-						country: true,
-						site: true
-					}
-				},
-				warehouse: {
-					select: {
-						id: true,
-						name: true,
-						address: true
-					}
-				},
-				images: {
-					orderBy: { orderIndex: 'asc' },
-					select: {
-						id: true,
-						imageUrl: true,
-						altText: true,
-						orderIndex: true
+	let total, parts;
+	try {
+		[total, parts] = await Promise.all([
+			prisma.part.count({ where }),
+			prisma.part.findMany({
+				where,
+				skip: (page - 1) * page_size,
+				take: page_size,
+				orderBy: orderBy.length > 0 ? orderBy : [{ createdAt: 'desc' }],
+				include: {
+					brand: {
+						select: {
+							id: true,
+							name: true,
+							country: true,
+							site: true
+						}
+					},
+					warehouse: {
+						select: {
+							id: true,
+							name: true,
+							address: true
+						}
+					},
+					images: {
+						orderBy: { orderIndex: 'asc' },
+						select: {
+							id: true,
+							imageUrl: true,
+							altText: true,
+							orderIndex: true
+						}
 					}
 				}
-			}
-		})
-	]);
+			})
+		]);
+	} catch (dbError) {
+		logger.error('Database query error', {
+			error: dbError instanceof Error ? dbError.message : String(dbError),
+			stack: dbError instanceof Error ? dbError.stack : undefined,
+			where,
+			page,
+			page_size
+		});
+		throw dbError;
+	}
 
 	const results = parts.map(part => ({
 		id: part.id,
@@ -218,6 +274,16 @@ const handler: RequestHandler = async ({ url }) => {
 		previous: page > 1 ? `/api/parts?page=${page - 1}&page_size=${page_size}` : null,
 		results
 	});
+	} catch (error) {
+		// Логируем ошибку перед тем, как она будет обработана createApiHandler
+		logger.error('Error in parts handler', {
+			error: error instanceof Error ? error.message : String(error),
+			stack: error instanceof Error ? error.stack : undefined,
+			url: url.toString()
+		});
+		// Пробрасываем ошибку дальше для обработки createApiHandler
+		throw error;
+	}
 };
 
 // Экспорт с обработкой ошибок

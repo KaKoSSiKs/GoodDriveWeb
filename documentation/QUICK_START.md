@@ -56,8 +56,8 @@ docker-compose up -d
 **http://localhost:3000/admin**
 
 **Учётные данные:**
-- Email: `admin@gooddrive.com`
-- Пароль: `admin123`
+- Email: `admin`
+- Пароль: `12345678`
 
 Доступные разделы:
 - Dashboard - общая статистика
