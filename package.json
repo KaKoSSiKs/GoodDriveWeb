@@ -18,6 +18,7 @@
     "db:reset": "prisma migrate reset --force && npm run db:seed",
     "create:admin": "node scripts/create-admin.js",
     "import:catalog": "node scripts/import-catalog-csv.js",
+    "import:data": "node scripts/import-data.js",
     "generate:images": "node scripts/generate-product-images.js"
   },
   "dependencies": {

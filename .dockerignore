@@ -1,20 +1,65 @@
+# Dependencies
 node_modules
-.svelte-kit
+npm-debug.log
+yarn-error.log
+package-lock.json
+yarn.lock
+
+# Build outputs
 build
+.svelte-kit
 dist
+
+# Environment files
 .env
-.env.*
-!.env.example
-*.log
-.DS_Store
-Thumbs.db
+.env.local
+.env.*.local
+
+# IDE
 .vscode
 .idea
 *.swp
 *.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git
+.gitignore
+
+# Documentation
+README.md
+*.md
+documentation
+
+# Tests
+test
+tests
+__tests__
+*.test.js
+*.test.ts
+*.spec.js
+*.spec.ts
+
+# Docker
+Dockerfile.dev
+docker-compose.dev.yml
+.dockerignore
+
+# Logs
+logs
+*.log
+
+# Misc
 coverage
 .nyc_output
-*.xlsx
-*.xls
-README.md
+.cache
 
+# Prisma
+prisma/migrations
+
+# Static files (копируются отдельно в Dockerfile)
+# static
