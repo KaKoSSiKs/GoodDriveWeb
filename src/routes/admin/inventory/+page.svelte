@@ -456,8 +456,24 @@
 
 <!-- Модальное окно импорта из Excel -->
 {#if showImportModal}
-  <div class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onclick={() => showImportModal = false}>
-    <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full" onclick={(e) => e.stopPropagation()}>
+  <div 
+    class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" 
+    onclick={() => showImportModal = false}
+    onkeydown={(e) => e.key === 'Escape' && (showImportModal = false)}
+    role="dialog"
+    aria-modal="true"
+    tabindex="-1"
+  >
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+    <div 
+      class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full" 
+      onclick={(e) => e.stopPropagation()}
+      role="region"
+      aria-label="Содержимое модального окна"
+      tabindex="0"
+    >
       <div class="p-6 border-b border-gray-200">
         <h2 class="text-2xl font-bold text-gray-900">Импорт товаров из Excel</h2>
         <p class="text-sm text-gray-600 mt-2">Загрузите Excel файл с товарами для массового импорта</p>
@@ -499,8 +515,9 @@
         
         <!-- Загрузка файла -->
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Выберите Excel файл</label>
+          <label for="excel-file-input" class="block text-sm font-medium text-gray-700 mb-2">Выберите Excel файл</label>
           <input 
+            id="excel-file-input"
             type="file" 
             accept=".xlsx,.xls"
             onchange={handleFileImport}

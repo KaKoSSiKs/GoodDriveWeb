@@ -147,11 +147,28 @@
 </script>
 
 {#if isOpen}
-  <div class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onclick={onClose}>
-    <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto" onclick={(e) => e.stopPropagation()}>
+  <div 
+    class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" 
+    onclick={onClose}
+    onkeydown={(e) => e.key === 'Escape' && onClose()}
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="add-product-title"
+    tabindex="-1"
+  >
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+    <div 
+      class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto" 
+      onclick={(e) => e.stopPropagation()}
+      role="region"
+      aria-label="Содержимое модального окна"
+      tabindex="0"
+    >
       <div class="p-6 border-b border-gray-200 flex items-center justify-between">
-        <h2 class="text-2xl font-bold text-gray-900">Добавить товар</h2>
-        <button onclick={onClose} class="w-10 h-10 rounded-full hover:bg-gray-100 flex items-center justify-center">
+        <h2 id="add-product-title" class="text-2xl font-bold text-gray-900">Добавить товар</h2>
+        <button onclick={onClose} aria-label="Закрыть" class="w-10 h-10 rounded-full hover:bg-gray-100 flex items-center justify-center">
           <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
           </svg>
@@ -161,19 +178,19 @@
       <div class="p-6 space-y-6">
         <!-- Название -->
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Название товара *</label>
-          <input type="text" bind:value={formData.title} required class="input w-full" placeholder="Например: Тормозные колодки передние" />
+          <label for="add-title" class="block text-sm font-medium text-gray-700 mb-2">Название товара *</label>
+          <input id="add-title" type="text" bind:value={formData.title} required class="input w-full" placeholder="Например: Тормозные колодки передние" />
         </div>
         
         <!-- Артикул -->
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Артикул</label>
-          <input type="text" bind:value={formData.manufacturer_number} class="input w-full" placeholder="BRK-12345" />
+          <label for="add-manufacturer-number" class="block text-sm font-medium text-gray-700 mb-2">Артикул</label>
+          <input id="add-manufacturer-number" type="text" bind:value={formData.manufacturer_number} class="input w-full" placeholder="BRK-12345" />
         </div>
         
         <!-- Бренд -->
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Бренд *</label>
+          <label for="add-brand-select" class="block text-sm font-medium text-gray-700 mb-2">Бренд *</label>
           <div class="flex items-center space-x-4 mb-2">
             <label class="flex items-center cursor-pointer">
               <input type="radio" bind:group={formData.use_custom_brand} value={false} class="mr-2" />
@@ -185,9 +202,9 @@
             </label>
           </div>
           {#if formData.use_custom_brand}
-            <input type="text" bind:value={formData.brand_name} placeholder="Введите название бренда" class="input w-full" />
+            <input id="add-brand-custom" type="text" bind:value={formData.brand_name} placeholder="Введите название бренда" class="input w-full" />
           {:else}
-            <select bind:value={formData.brand} class="input w-full">
+            <select id="add-brand-select" bind:value={formData.brand} class="input w-full">
               <option value="">Выберите бренд</option>
               {#each brands as brand}
                 <option value={brand.id}>{brand.name}</option>
@@ -198,7 +215,7 @@
         
         <!-- Склад -->
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Склад *</label>
+          <label for="add-warehouse-select" class="block text-sm font-medium text-gray-700 mb-2">Склад *</label>
           <div class="flex items-center space-x-4 mb-2">
             <label class="flex items-center cursor-pointer">
               <input type="radio" bind:group={formData.use_custom_warehouse} value={false} class="mr-2" />
@@ -210,9 +227,9 @@
             </label>
           </div>
           {#if formData.use_custom_warehouse}
-            <input type="text" bind:value={formData.warehouse_name} placeholder="Введите название склада" class="input w-full" />
+            <input id="add-warehouse-custom" type="text" bind:value={formData.warehouse_name} placeholder="Введите название склада" class="input w-full" />
           {:else}
-            <select bind:value={formData.warehouse} class="input w-full">
+            <select id="add-warehouse-select" bind:value={formData.warehouse} class="input w-full">
               <option value="">Выберите склад</option>
               {#each warehouses as warehouse}
                 <option value={warehouse.id}>{warehouse.name}</option>
@@ -224,22 +241,22 @@
         <!-- Цены и количество -->
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Количество на складе *</label>
-            <input type="number" bind:value={formData.stock} min="0" class="input w-full" placeholder="10" />
+            <label for="add-stock" class="block text-sm font-medium text-gray-700 mb-2">Количество на складе *</label>
+            <input id="add-stock" type="number" bind:value={formData.stock} min="0" class="input w-full" placeholder="10" />
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Цена продажи (₽) *</label>
-            <input type="number" step="0.01" bind:value={formData.price_opt} min="0" class="input w-full" placeholder="2500.00" />
+            <label for="add-price-opt" class="block text-sm font-medium text-gray-700 mb-2">Цена продажи (₽) *</label>
+            <input id="add-price-opt" type="number" step="0.01" bind:value={formData.price_opt} min="0" class="input w-full" placeholder="2500.00" />
           </div>
         </div>
         
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Себестоимость (₽)</label>
-            <input type="number" step="0.01" bind:value={formData.cost_price} min="0" class="input w-full" placeholder="1800.00" />
+            <label for="add-cost-price" class="block text-sm font-medium text-gray-700 mb-2">Себестоимость (₽)</label>
+            <input id="add-cost-price" type="number" step="0.01" bind:value={formData.cost_price} min="0" class="input w-full" placeholder="1800.00" />
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Маржа</label>
+            <label for="add-margin" class="block text-sm font-medium text-gray-700 mb-2">Маржа</label>
             <div class="input w-full bg-gray-50 text-lg font-semibold {
               (formData.price_opt - formData.cost_price) > 0 ? 'text-green-600' : 'text-gray-600'
             }">
@@ -250,24 +267,24 @@
         
         <!-- Описание -->
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Описание</label>
-          <textarea bind:value={formData.description} rows="3" class="input w-full" placeholder="Описание товара..."></textarea>
+          <label for="add-description" class="block text-sm font-medium text-gray-700 mb-2">Описание</label>
+          <textarea id="add-description" bind:value={formData.description} rows="3" class="input w-full" placeholder="Описание товара..."></textarea>
         </div>
         
         <!-- Изображения -->
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Изображения товара</label>
+          <label for="add-images" class="block text-sm font-medium text-gray-700 mb-2">Изображения товара</label>
           <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 hover:border-primary-400 transition-colors">
             <input 
+              id="add-images"
               type="file" 
               accept="image/*" 
               multiple 
               onchange={handleImageUpload}
               class="hidden"
-              id="image-upload-add"
               disabled={isUploadingImage}
             />
-            <label for="image-upload-add" class="cursor-pointer flex flex-col items-center">
+            <label for="add-images" class="cursor-pointer flex flex-col items-center">
               {#if isUploadingImage}
                 <div class="animate-spin w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full mb-2"></div>
                 <span class="text-sm text-gray-600">Загрузка...</span>

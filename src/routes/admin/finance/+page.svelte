@@ -393,8 +393,8 @@
       <h3 class="text-lg font-semibold text-gray-900 mb-4">Добавить расход</h3>
       <form onsubmit={(e) => { e.preventDefault(); handleAddExpense(); }} class="space-y-4">
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Категория</label>
-          <select bind:value={newExpense.category} required class="input w-full">
+          <label for="expense-category" class="block text-sm font-medium text-gray-700 mb-2">Категория</label>
+          <select id="expense-category" bind:value={newExpense.category} required class="input w-full">
             <option value="">Выберите категорию</option>
             {#each expenseCategories as category}
               <option value={category.id}>{category.name}</option>
@@ -402,16 +402,16 @@
           </select>
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Сумма</label>
-          <input type="number" step="0.01" bind:value={newExpense.amount} required class="input w-full" />
+          <label for="expense-amount" class="block text-sm font-medium text-gray-700 mb-2">Сумма</label>
+          <input id="expense-amount" type="number" step="0.01" bind:value={newExpense.amount} required class="input w-full" />
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Дата</label>
-          <input type="date" bind:value={newExpense.date} required class="input w-full" />
+          <label for="expense-date" class="block text-sm font-medium text-gray-700 mb-2">Дата</label>
+          <input id="expense-date" type="date" bind:value={newExpense.date} required class="input w-full" />
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Описание</label>
-          <textarea bind:value={newExpense.description} required class="input w-full" rows="3"></textarea>
+          <label for="expense-description" class="block text-sm font-medium text-gray-700 mb-2">Описание</label>
+          <textarea id="expense-description" bind:value={newExpense.description} required class="input w-full" rows="3"></textarea>
         </div>
         <div class="flex space-x-3">
           <button type="submit" class="btn-primary flex-1">Добавить</button>
@@ -429,19 +429,19 @@
       <h3 class="text-lg font-semibold text-gray-900 mb-4">Добавить транзакцию</h3>
       <form onsubmit={(e) => { e.preventDefault(); handleAddTransaction(); }} class="space-y-4">
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Тип</label>
-          <select bind:value={newTransaction.type} required class="input w-full">
+          <label for="transaction-type" class="block text-sm font-medium text-gray-700 mb-2">Тип</label>
+          <select id="transaction-type" bind:value={newTransaction.type} required class="input w-full">
             <option value="income">Приход</option>
             <option value="expense">Расход</option>
           </select>
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Сумма</label>
-          <input type="number" step="0.01" bind:value={newTransaction.amount} required class="input w-full" />
+          <label for="transaction-amount" class="block text-sm font-medium text-gray-700 mb-2">Сумма</label>
+          <input id="transaction-amount" type="number" step="0.01" bind:value={newTransaction.amount} required class="input w-full" />
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Способ оплаты</label>
-          <select bind:value={newTransaction.payment_method} required class="input w-full">
+          <label for="transaction-payment-method" class="block text-sm font-medium text-gray-700 mb-2">Способ оплаты</label>
+          <select id="transaction-payment-method" bind:value={newTransaction.payment_method} required class="input w-full">
             <option value="cash">Наличные</option>
             <option value="card">Карта</option>
             <option value="bank_transfer">Банковский перевод</option>
@@ -449,8 +449,8 @@
           </select>
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Описание</label>
-          <textarea bind:value={newTransaction.description} required class="input w-full" rows="3"></textarea>
+          <label for="transaction-description" class="block text-sm font-medium text-gray-700 mb-2">Описание</label>
+          <textarea id="transaction-description" bind:value={newTransaction.description} required class="input w-full" rows="3"></textarea>
         </div>
         <div class="flex space-x-3">
           <button type="submit" class="btn-primary flex-1">Добавить</button>

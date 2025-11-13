@@ -100,35 +100,10 @@ const handler: RequestHandler = async ({ url }) => {
 		const searchTerms = search.replace(/\+/g, ' ').trim().split(/\s+/).filter(term => term.length > 0);
 		
 		if (searchTerms.length > 0) {
-			// Проверяем, является ли поиск запросом по категории
-			// Для этого проверяем, совпадают ли слова с ключевыми словами категорий
-			let categoryKeywords: string[] = [];
-			let isCategorySearch = false;
-			
-			// Проверяем каждую категорию
-			for (const category of CATEGORIES) {
-				const categoryWords = category.keywords.map(k => k.toLowerCase());
-				const searchWords = searchTerms.map(t => t.toLowerCase());
-				
-				// Если хотя бы одно слово поиска совпадает с ключевыми словами категории
-				const hasMatch = searchWords.some(sw => categoryWords.some(cw => cw.includes(sw) || sw.includes(cw)));
-				
-				if (hasMatch) {
-					isCategorySearch = true;
-					// Добавляем все ключевые слова категории для более точного поиска
-					categoryKeywords = [...categoryKeywords, ...category.keywords];
-				}
-			}
-			
-			// Если это поиск по категории, используем все ключевые слова категории
-			// Иначе используем только введенные слова
-			const finalSearchTerms = isCategorySearch && categoryKeywords.length > 0
-				? [...new Set([...searchTerms, ...categoryKeywords])] // Объединяем и убираем дубликаты
-				: searchTerms;
-			
 			// Для каждого ключевого слова ищем в любом из полей (title, description, номера)
-			// Между словами используем OR - товар должен содержать хотя бы одно из ключевых слов
-			const searchConditions = finalSearchTerms.map(term => ({
+			// Между словами используем AND - товар должен содержать ВСЕ ключевые слова
+			// Каждое слово может быть в любом из полей (OR между полями)
+			const searchConditions = searchTerms.map(term => ({
 				OR: [
 					{ title: { contains: term } },
 					{ originalNumber: { contains: term } },
@@ -137,11 +112,12 @@ const handler: RequestHandler = async ({ url }) => {
 				]
 			}));
 			
-			// Если уже есть OR условия, объединяем их
-			if (where.OR) {
-				where.OR = [...where.OR, ...searchConditions];
+			// Используем AND между словами - товар должен содержать все слова
+			// Если уже есть AND условия, объединяем их
+			if (where.AND) {
+				where.AND = [...where.AND, ...searchConditions];
 			} else {
-				where.OR = searchConditions;
+				where.AND = searchConditions;
 			}
 		}
 	}
@@ -277,33 +253,38 @@ const handler: RequestHandler = async ({ url }) => {
 		throw dbError;
 	}
 
-	const results = parts.map(part => ({
-		id: part.id,
-		is_active: part.isActive,
-		title: part.title,
-		label: part.label,
-		original_number: part.originalNumber,
-		manufacturer_number: part.manufacturerNumber,
-		brand: part.brand,
-		brand_name: part.brand?.name || '',
-		warehouse: part.warehouse,
-		warehouse_name: part.warehouse?.name || '',
-		quantity: part.quantity ?? 0,
-		stock: part.stock ?? 0,
-		reserve: part.reserve ?? 0,
-		available: part.available ?? 0,
-		price_opt: part.priceOpt.toFixed(2),
-		cost_price: part.costPrice.toFixed(2),
-		description: part.description,
-		images: part.images.map(img => ({
+	const results = parts.map(part => {
+		// Маппим изображения, проверяя наличие imageUrl
+		const mappedImages = (part.images || []).map(img => ({
 			id: img.id,
-			image_url: img.imageUrl,
+			image_url: img.imageUrl || null, // Явно указываем null если нет URL
 			alt_text: img.altText || part.title,
 			order_index: img.orderIndex
-		})),
-		created_at: part.createdAt.toISOString(),
-		updated_at: part.updatedAt.toISOString()
-	}));
+		})).filter(img => img.image_url !== null); // Убираем изображения без URL
+		
+		return {
+			id: part.id,
+			is_active: part.isActive,
+			title: part.title,
+			label: part.label,
+			original_number: part.originalNumber,
+			manufacturer_number: part.manufacturerNumber,
+			brand: part.brand,
+			brand_name: part.brand?.name || '',
+			warehouse: part.warehouse,
+			warehouse_name: part.warehouse?.name || '',
+			quantity: part.quantity ?? 0,
+			stock: part.stock ?? 0,
+			reserve: part.reserve ?? 0,
+			available: part.available ?? 0,
+			price_opt: part.priceOpt.toFixed(2),
+			cost_price: part.costPrice.toFixed(2),
+			description: part.description,
+			images: mappedImages,
+			created_at: part.createdAt.toISOString(),
+			updated_at: part.updatedAt.toISOString()
+		};
+	});
 
 	const totalPages = Math.ceil(total / page_size);
 

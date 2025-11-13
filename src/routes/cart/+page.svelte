@@ -150,10 +150,11 @@
                     <div class="flex items-center space-x-2">
                       <button
                         onclick={() => updateQuantity(item.id, -1)}
+                        aria-label="Уменьшить количество"
                         class="w-8 h-8 rounded-full border border-neutral-300 flex items-center justify-center hover:bg-neutral-50 disabled:opacity-30 disabled:cursor-not-allowed"
                         disabled={item.quantity <= 1}
                       >
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" />
                         </svg>
                       </button>
@@ -162,6 +163,7 @@
                       
                       <button
                         onclick={() => updateQuantity(item.id, 1)}
+                        aria-label="Увеличить количество"
                         class="w-8 h-8 rounded-full border border-neutral-300 flex items-center justify-center hover:bg-neutral-50 disabled:opacity-30 disabled:cursor-not-allowed"
                         disabled={item.quantity >= (item.available || 0)}
                       >

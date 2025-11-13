@@ -185,6 +185,33 @@ export const partsApi = {
     }
     return data;
   },
+  
+  async updateImageOrder(partId, imageId, orderIndex) {
+    const url = `/api/parts/${partId}/images/${imageId}`;
+    const response = await fetch(url, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      credentials: 'same-origin',
+      body: JSON.stringify({ order_index: orderIndex })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `Failed to update image order: ${response.status} ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    if (!data.success) {
+      throw new Error(data.error || 'Failed to update image order');
+    }
+    return data;
+  },
+  
+  async updatePart(id, data) {
+    return api.put(`/api/parts/${id}`, data);
+  },
 };
 
 // API для работы с брендами
@@ -250,6 +277,9 @@ export const ordersApi = {
 export const cartUtils = {
   getCart() {
     try {
+      if (typeof window === 'undefined' || !window.localStorage) {
+        return [];
+      }
       const cart = localStorage.getItem('gooddrive_cart');
       if (!cart) return [];
       
@@ -263,6 +293,9 @@ export const cartUtils = {
   
   saveCart(cart) {
     try {
+      if (typeof window === 'undefined' || !window.localStorage) {
+        return;
+      }
       localStorage.setItem('gooddrive_cart', JSON.stringify(cart));
     } catch (error) {
       console.error('Error saving cart:', error);

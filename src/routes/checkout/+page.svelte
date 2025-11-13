@@ -242,24 +242,33 @@
       
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <!-- Форма -->
-        <div class="lg:col-span-2">
-          <form 
-            onsubmit={handleSubmit} 
-            onkeydown={(e) => {
-              // Предотвращаем отправку формы через Enter, если галочка не проставлена
-              if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA' && !form.consent_pd) {
-                e.preventDefault();
-                errors.consent_pd = 'Необходимо дать согласие на обработку персональных данных';
-                const consentElement = document.getElementById('consent_pd');
-                if (consentElement) {
-                  consentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                  consentElement.focus();
-                }
-                return false;
+        <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+        <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+        <div 
+          class="lg:col-span-2"
+          onkeydown={(e) => {
+            // Предотвращаем отправку формы через Enter, если галочка не проставлена
+            if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'BUTTON' && !form.consent_pd) {
+              e.preventDefault();
+              errors.consent_pd = 'Необходимо дать согласие на обработку персональных данных';
+              const consentElement = document.getElementById('consent_pd');
+              if (consentElement) {
+                consentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                consentElement.focus();
               }
-            }}
-            class="space-y-8"
+              return false;
+            }
+          }}
+          role="group"
+          aria-label="Форма оформления заказа"
+          tabindex="0"
+        >
+          <form 
+            onsubmit={handleSubmit}
           >
+            <div 
+              class="space-y-8"
+            >
             <!-- Контактная информация -->
             <div class="card p-6">
               <h2 class="text-xl font-semibold text-neutral-900 mb-6">Контактная информация</h2>
@@ -451,6 +460,7 @@
               <a href="/cart" class="btn-outline">
                 Вернуться в корзину
               </a>
+            </div>
             </div>
           </form>
         </div>

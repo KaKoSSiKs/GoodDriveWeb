@@ -65,6 +65,14 @@
 		loading = true;
 		try {
 			part = await partsApi.getPart(productId);
+			console.log('Загружен товар:', {
+				id: part?.id,
+				title: part?.title,
+				hasImages: !!part?.images,
+				imagesCount: part?.images?.length || 0,
+				images: part?.images,
+				firstImage: part?.images?.[0]
+			});
 			quantity = 1;
 			selectedImageIndex = 0;
 		} catch (error) {
@@ -210,19 +218,34 @@
 			<!-- Основное изображение -->
 			<div class="aspect-square bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl overflow-hidden shadow-lg border border-gray-200" role="img" aria-label="Изображение товара {part.title}">
 				{#if hasImages && currentImage}
-					<img
-						src={currentImage.image_url}
-						alt={currentImage.alt_text || `${part.title}${brandName ? ` от ${brandName}` : ''}`}
-						class="w-full h-full object-contain p-4 transition-opacity duration-300"
-						loading={selectedImageIndex === 0 ? 'eager' : 'lazy'}
-						decoding="async"
-						width="800"
-						height="800"
-						onerror={(e) => {
-							console.error('Image load error:', currentImage.image_url);
-							e.currentTarget.style.display = 'none';
-						}}
-					/>
+					{@const imageSrc = currentImage.image_url || currentImage.imageUrl || currentImage.url || ''}
+					{#if imageSrc}
+						<img
+							src={imageSrc}
+							alt={currentImage.alt_text || currentImage.altText || `${part.title}${brandName ? ` от ${brandName}` : ''}`}
+							class="w-full h-full object-contain p-4 transition-opacity duration-300"
+							loading={selectedImageIndex === 0 ? 'eager' : 'lazy'}
+							decoding="async"
+							width="800"
+							height="800"
+							onerror={(e) => {
+								console.error('Image load error:', {
+									imageSrc,
+									currentImage,
+									partId: part.id,
+									imageId: currentImage.id
+								});
+								e.currentTarget.style.display = 'none';
+							}}
+							onload={() => {
+								console.log('Image loaded successfully:', imageSrc.substring(0, 50) + '...');
+							}}
+						/>
+					{:else}
+						<div class="w-full h-full flex items-center justify-center">
+							<p class="text-gray-400">URL изображения отсутствует</p>
+						</div>
+					{/if}
 				{:else}
 					<div class="w-full h-full flex items-center justify-center" role="img" aria-label="Изображение товара отсутствует">
 						<div class="text-center">
@@ -239,26 +262,40 @@
 			{#if part.images && part.images.length > 1}
 				<div class="grid grid-cols-4 gap-3" role="group" aria-label="Миниатюры изображений товара">
 					{#each part.images as image, index}
+						{@const thumbSrc = image.image_url || image.imageUrl || image.url || ''}
 						<button
 							onclick={() => selectImage(index)}
-							aria-label="Показать изображение {index + 1} из {part.images.length}: {image.alt_text || part.title}"
+							aria-label="Показать изображение {index + 1} из {part.images.length}: {image.alt_text || image.altText || part.title}"
 							aria-pressed={selectedImageIndex === index}
 							class="aspect-square bg-gray-50 rounded-xl overflow-hidden border-2 transition-all duration-200
 								   {selectedImageIndex === index ? 'border-primary-500 ring-2 ring-primary-200' : 'border-gray-200 hover:border-primary-300'}"
 						>
-							<img
-								src={image.image_url}
-								alt={image.alt_text || `${part.title} - изображение ${index + 1}`}
-								class="w-full h-full object-contain p-2"
-								loading="lazy"
-								decoding="async"
-								width="200"
-								height="200"
-								onerror={(e) => {
-									console.error('Thumbnail load error:', image.image_url);
-									e.currentTarget.style.display = 'none';
-								}}
-							/>
+							{#if thumbSrc}
+								<img
+									src={thumbSrc}
+									alt={image.alt_text || image.altText || `${part.title} - изображение ${index + 1}`}
+									class="w-full h-full object-contain p-2"
+									loading="lazy"
+									decoding="async"
+									width="200"
+									height="200"
+									onerror={(e) => {
+										console.error('Thumbnail load error:', {
+											thumbSrc,
+											image,
+											partId: part.id,
+											imageId: image.id
+										});
+										e.currentTarget.style.display = 'none';
+									}}
+								/>
+							{:else}
+								<div class="w-full h-full flex items-center justify-center">
+									<svg class="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+									</svg>
+								</div>
+							{/if}
 						</button>
 					{/each}
 				</div>
@@ -358,10 +395,11 @@
 
 				<!-- Количество -->
 				<div class="mb-6">
-					<label class="block text-sm font-semibold text-gray-700 mb-3">Количество</label>
+					<label for="quantity-input" class="block text-sm font-semibold text-gray-700 mb-3">Количество</label>
 					<div class="flex items-center gap-3">
 						<button
 							onclick={() => updateQuantity(-1)}
+							aria-label="Уменьшить количество"
 							disabled={quantity <= 1}
 							class="w-12 h-12 flex items-center justify-center rounded-xl border-2 border-gray-200 hover:border-primary-500 hover:bg-primary-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
 						>
@@ -371,6 +409,7 @@
 						</button>
 						
 						<input
+							id="quantity-input"
 							type="number"
 							bind:value={quantity}
 							min="1"
@@ -385,6 +424,7 @@
 						
 						<button
 							onclick={() => updateQuantity(1)}
+							aria-label="Увеличить количество"
 							disabled={quantity >= maxQuantity()}
 							class="w-12 h-12 flex items-center justify-center rounded-xl border-2 border-gray-200 hover:border-primary-500 hover:bg-primary-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
 						>
@@ -452,8 +492,8 @@
 					<a href="/catalog" class="btn-outline text-center">
 						← К каталогу
 					</a>
-					<button class="btn-ghost">
-						<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<button class="btn-ghost" aria-label="Добавить в избранное">
+						<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
 						</svg>
 					</button>

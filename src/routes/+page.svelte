@@ -180,7 +180,6 @@
       width="1920"
       height="1080"
       onerror={() => heroImageFailed = true}
-      role="img"
       aria-hidden="true"
     />
   {/if}
@@ -273,17 +272,17 @@
     </div>
     
     {#if loading}
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {#each Array(4) as _}
-          <div class="card p-6 animate-pulse">
-            <div class="aspect-square bg-gray-200 rounded-lg mb-4"></div>
-            <div class="h-4 bg-gray-200 rounded mb-2"></div>
-            <div class="h-4 bg-gray-200 rounded w-2/3"></div>
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-4 gap-2 md:gap-3 items-stretch">
+        {#each Array(8) as _}
+          <div class="card p-3 animate-pulse">
+            <div class="aspect-square bg-gray-200 rounded-lg mb-2"></div>
+            <div class="h-3 bg-gray-200 rounded mb-1.5"></div>
+            <div class="h-3 bg-gray-200 rounded w-2/3"></div>
           </div>
         {/each}
       </div>
     {:else if featuredParts.length > 0}
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-4 gap-2 md:gap-3 items-stretch">
         {#each featuredParts as part}
           <PartCard {part} isPopular={part.isPopular || false} on:addToCart={handleAddToCart} />
         {/each}

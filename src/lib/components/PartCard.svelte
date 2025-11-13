@@ -15,9 +15,59 @@
   const dispatch = createEventDispatcher();
   
   // Производные значения
-  let hasImage = $derived(part.images && part.images.length > 0 && part.images[0].image_url);
-  let imageUrl = $derived(hasImage ? imageUtils.getAbsoluteUrl(part.images[0].image_url) : null);
-  let imageAlt = $derived(part.images?.[0]?.alt_text || part.title);
+  // Проверяем наличие изображений - поддерживаем разные форматы данных
+  let hasImage = $derived.by(() => {
+    if (!part || !part.images) {
+      return false;
+    }
+    if (!Array.isArray(part.images) || part.images.length === 0) {
+      return false;
+    }
+    const firstImage = part.images[0];
+    if (!firstImage || typeof firstImage !== 'object') {
+      return false;
+    }
+    // Проверяем разные возможные названия полей
+    const imageUrl = firstImage.image_url || firstImage.imageUrl || firstImage.url;
+    const hasValidUrl = !!imageUrl && typeof imageUrl === 'string' && imageUrl.trim() !== '';
+    
+    // Логируем для диагностики
+    if (!hasValidUrl && part.id) {
+      console.warn('PartCard: No valid image URL', {
+        partId: part.id,
+        partTitle: part.title,
+        images: part.images,
+        firstImage,
+        imageUrl
+      });
+    }
+    
+    return hasValidUrl;
+  });
+  
+  let imageUrl = $derived.by(() => {
+    if (!hasImage || !part || !part.images || part.images.length === 0) {
+      return null;
+    }
+    const firstImage = part.images[0];
+    if (!firstImage || typeof firstImage !== 'object') {
+      return null;
+    }
+    // Поддерживаем разные форматы данных
+    const url = firstImage.image_url || firstImage.imageUrl || firstImage.url;
+    if (!url || typeof url !== 'string' || url.trim() === '') {
+      return null;
+    }
+    // Для base64 изображений (data URLs) возвращаем как есть
+    if (url.startsWith('data:')) {
+      return url;
+    }
+    // Для остальных используем imageUtils
+    const absoluteUrl = imageUtils.getAbsoluteUrl(url);
+    return absoluteUrl;
+  });
+  
+  let imageAlt = $derived(part.images?.[0]?.alt_text || part.images?.[0]?.altText || part.title);
   let brandName = $derived(part.brand?.name || part.brand_name || 'Неизвестный');
   let warehouseName = $derived(part.warehouse?.name || part.warehouse_name || '');
   let isInStock = $derived((Number(part.available) || 0) > 0);
@@ -32,11 +82,23 @@
   // Обработчики
   function handleImageLoad() {
     isImageLoading = false;
+    console.log('PartCard: Image loaded successfully', {
+      partId: part.id,
+      imageUrl: imageUrl?.substring(0, 50) + '...'
+    });
   }
   
   function handleImageError() {
     isImageLoading = false;
     imageError = true;
+    console.error('PartCard: Image load error', {
+      partId: part.id,
+      partTitle: part.title,
+      hasImage,
+      imageUrl: imageUrl?.substring(0, 100),
+      images: part.images,
+      firstImage: part.images?.[0]
+    });
   }
   
   function handleAddToCart(event) {
@@ -48,51 +110,79 @@
 </script>
 
 <article 
-  class="card-hover group block {compact ? 'p-4' : 'p-6'} border-2 border-transparent hover:border-primary-200"
+  class="group block p-2 border border-gray-200 hover:border-primary-400 rounded-lg bg-white shadow-sm hover:shadow-lg transition-all flex flex-col"
   aria-labelledby="part-title-{part.id}"
+  style="height: 100%;"
 >
-  <a href="/product/{part.id}" aria-label="Перейти к товару {part.title}">
-    <!-- Изображение товара -->
-    <div class="aspect-square bg-gradient-to-br from-primary-50/30 to-secondary-50 rounded-xl mb-6 flex items-center justify-center overflow-hidden relative">
-      {#if hasImage && !imageError}
-        <img 
-          src={imageUrl} 
-          alt="{part.title} от {brandName}"
-          class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-          loading="lazy"
-          decoding="async"
-          width="400"
-          height="400"
-          onload={handleImageLoad}
-          onerror={handleImageError}
-        />
-        {#if isImageLoading}
-          <div class="absolute inset-0 bg-gradient-to-br from-secondary-100 to-secondary-200 animate-pulse rounded-xl"></div>
+  <!-- Изображение товара (ссылка) -->
+  <a href="/product/{part.id}" aria-label="Перейти к товару {part.title}" class="block mb-2 flex-shrink-0">
+    <div class="aspect-square bg-gradient-to-br from-gray-50 to-gray-100 rounded-md flex items-center justify-center overflow-hidden relative w-full">
+      {#if hasImage && !imageError && imageUrl}
+        {@const imgSrc = String(imageUrl || '')}
+        {#if imgSrc && imgSrc.trim() !== ''}
+          <img 
+            src={imgSrc} 
+            alt={imageAlt || part.title || 'Изображение товара'}
+            class="w-full h-full object-contain p-1.5 transition-transform duration-300 group-hover:scale-105"
+            loading="lazy"
+            decoding="async"
+            width="200"
+            height="200"
+            crossorigin="anonymous"
+            style="max-width: 100%; max-height: 100%;"
+            onload={handleImageLoad}
+            onerror={(e) => {
+              console.error('Image load error in PartCard:', {
+                partId: part.id,
+                partTitle: part.title,
+                imageUrl: imgSrc.substring(0, 100),
+                hasImage,
+                imageError,
+                images: part.images,
+                firstImage: part.images?.[0]
+              });
+              handleImageError();
+            }}
+          />
+        {:else}
+          <div class="text-center flex flex-col items-center justify-center h-full w-full" role="img" aria-label="URL изображения отсутствует">
+            <svg class="text-gray-300 w-10 h-10 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <p class="text-[9px] text-gray-400">URL отсутствует</p>
+          </div>
         {/if}
-      {:else}
-        <div class="text-center" role="img" aria-label="Изображение товара отсутствует">
-          <svg class="text-secondary-400 mx-auto mb-2 {compact ? 'w-12 h-12' : 'w-16 h-16'}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+      {:else if !hasImage}
+        <div class="text-center flex flex-col items-center justify-center h-full w-full" role="img" aria-label="Изображение товара отсутствует">
+          <svg class="text-gray-300 w-10 h-10 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
           </svg>
-          <p class="text-xs text-secondary-500">Изображение</p>
+          <p class="text-[9px] text-gray-400">Нет изображения</p>
+        </div>
+        {#if isImageLoading}
+          <div class="absolute inset-0 bg-gradient-to-br from-gray-100 to-gray-200 animate-pulse rounded-md"></div>
+        {/if}
+      {:else}
+        <div class="text-center flex flex-col items-center justify-center h-full w-full" role="img" aria-label="Изображение товара отсутствует">
+          <svg class="text-gray-300 w-10 h-10 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          <p class="text-[9px] text-gray-400">Изображение</p>
         </div>
       {/if}
       
       <!-- Бейджи: Хит продаж (если товар в топе) и статус наличия (только если нет в наличии) -->
-      <div class="absolute top-3 right-3 flex flex-col gap-2 items-end">
+      <div class="absolute top-1 right-1 flex flex-col gap-0.5 items-end z-10">
         <!-- Хит продаж - только для топ 100 товаров -->
         {#if isPopular}
-          <span class="badge bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg font-bold px-3 py-1.5 text-xs uppercase tracking-wide" role="status" aria-label="Хит продаж">
-            <svg class="w-4 h-4 inline-block mr-1" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-            </svg>
-            Хит продаж
+          <span class="bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-sm font-bold px-1.5 py-0.5 text-[9px] uppercase leading-tight rounded" role="status" aria-label="Хит продаж">
+            ★ ХИТ
           </span>
         {/if}
         
         <!-- Статус наличия - только если товар отсутствует -->
         {#if stockStatus}
-          <span class="badge {stockStatusClass}" role="status" aria-label="{stockStatus}">
+          <span class="bg-red-100 text-red-800 text-[9px] px-1.5 py-0.5 rounded leading-tight" role="status" aria-label="{stockStatus}">
             {stockStatus}
           </span>
         {/if}
@@ -100,75 +190,71 @@
     </div>
   </a>
   
-  <!-- Информация о товаре -->
-  <div class="space-y-4">
-    <div>
-      <h3 id="part-title-{part.id}" class="font-bold text-secondary-900 line-clamp-2 group-hover:text-primary-600 transition-colors text-lg leading-tight">
-        <a href="/product/{part.id}">{part.title}</a>
-      </h3>
-      
-      <div class="flex items-center justify-between mt-2">
-        <span class="text-sm font-semibold text-primary-700 bg-gradient-to-r from-primary-50 to-primary-100 px-3 py-1.5 rounded-lg border border-primary-200">
-          <span class="sr-only">Производитель:</span>
-          {brandName}
-        </span>
-        {#if showWarehouse && warehouseName}
-          <span class="text-xs text-secondary-600 bg-secondary-100 px-2 py-1 rounded-lg border border-secondary-200">
-            <span class="sr-only">Склад:</span>
-            {warehouseName}
-          </span>
-        {/if}
-      </div>
+  <!-- Информация о товаре (вне ссылки для работы кнопки) -->
+  <div class="flex flex-col flex-grow space-y-1 mt-2 min-h-0">
+    <!-- Бренд - фиксированная высота -->
+    <div class="flex items-center gap-1 h-4">
+      <span class="text-[10px] font-medium text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded leading-tight truncate max-w-full">
+        {brandName}
+      </span>
     </div>
     
-    <!-- Номера товара -->
-    {#if part.original_number || part.manufacturer_number}
-      <div class="space-y-2">
-        {#if part.original_number}
-          <div class="text-xs text-secondary-600 bg-secondary-50 px-3 py-2 rounded-lg">
-            <span class="font-medium text-secondary-700">Оригинал:</span> {part.original_number}
-          </div>
-        {/if}
-        {#if part.manufacturer_number}
-          <div class="text-xs text-secondary-600 bg-secondary-50 px-3 py-2 rounded-lg">
-            <span class="font-medium text-secondary-700">Производитель:</span> {part.manufacturer_number}
-          </div>
-        {/if}
-      </div>
-    {/if}
+    <!-- Название товара - до 4 строк -->
+    <h3 id="part-title-{part.id}" class="font-medium text-gray-900 line-clamp-4 group-hover:text-primary-600 transition-colors text-[11px] leading-[1.3] min-h-[3.5rem] overflow-hidden">
+      <a href="/product/{part.id}" class="block">{part.title || 'Без названия'}</a>
+    </h3>
     
-    <!-- Цена и кнопка -->
-    <div class="space-y-4">
-      <div class="text-center bg-gradient-to-br from-primary-50/50 to-transparent rounded-xl p-3 border border-primary-100">
-        <div class="text-2xl font-bold bg-gradient-to-r from-primary-700 to-brand-700 bg-clip-text text-transparent mb-1">
-          {part.price_opt ? formatUtils.formatPrice(Number(part.price_opt)) : 'Цена по запросу'}
+    <!-- Номера товара - фиксированная высота, всегда показываем -->
+    <div class="space-y-0.5 min-h-[1.75rem] flex flex-col justify-start">
+      {#if part.original_number}
+        <div class="text-[9px] text-gray-500 leading-tight truncate">
+          <span class="font-medium">Оригинал:</span> {part.original_number}
         </div>
+      {:else}
+        <div class="text-[9px] text-gray-400 leading-tight h-3.5"></div>
+      {/if}
+      {#if part.manufacturer_number && part.manufacturer_number !== part.original_number}
+        <div class="text-[9px] text-gray-500 leading-tight truncate">
+          <span class="font-medium">Производитель:</span> {part.manufacturer_number}
+        </div>
+      {:else}
+        <div class="text-[9px] text-gray-400 leading-tight h-3.5"></div>
+      {/if}
+    </div>
+    
+    <!-- Цена - фиксированная высота -->
+    <div class="mt-auto">
+      <div class="text-base font-bold text-gray-900 leading-tight h-5 flex items-center">
+        {part.price_opt ? formatUtils.formatPrice(Number(part.price_opt)) : 'Цена по запросу'}
+      </div>
+      <div class="text-[10px] text-gray-500 mt-0.5 h-3.5 flex items-center">
         {#if part.available > 0}
-          <div class="text-sm text-secondary-600">
-            Остаток: <span class="font-semibold text-primary-700">{part.available} шт.</span>
-          </div>
+          Остаток: <span class="font-semibold">{part.available} шт.</span>
+        {:else}
+          <span class="text-gray-400">Нет в наличии</span>
         {/if}
       </div>
-      
-      <button
-        onclick={handleAddToCart}
-        disabled={!isInStock}
-        aria-label="Добавить {part.title} в корзину"
-        aria-disabled={!isInStock}
-        class="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg"
-      >
-        {#if isInStock}
-          <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-          </svg>
-          <span>В корзину</span>
-        {:else}
-          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <span>Нет в наличии</span>
-        {/if}
-      </button>
     </div>
+    
+    <!-- Кнопка - фиксированная высота -->
+    <button
+      onclick={handleAddToCart}
+      disabled={!isInStock}
+      aria-label="Добавить {part.title} в корзину"
+      aria-disabled={!isInStock}
+      class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white text-xs font-medium py-1.5 px-2 rounded-md transition-colors mt-1.5 flex items-center justify-center gap-1 h-7 flex-shrink-0"
+    >
+      {#if isInStock}
+        <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+        </svg>
+        <span class="truncate">В корзину</span>
+      {:else}
+        <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <span class="truncate">Нет в наличии</span>
+      {/if}
+    </button>
   </div>
 </article>

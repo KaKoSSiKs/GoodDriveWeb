@@ -179,6 +179,27 @@
       
       console.log('Извлечено товаров:', allParts.length);
       
+      // Логируем первые несколько товаров для проверки структуры изображений
+      if (allParts.length > 0) {
+        console.log('Товары с изображениями (первые 3):', 
+          allParts.slice(0, 3).map(p => ({
+            id: p.id,
+            title: p.title,
+            hasImages: !!p.images,
+            imagesLength: p.images?.length || 0,
+            firstImage: p.images?.[0] ? {
+              id: p.images[0].id,
+              image_url: p.images[0].image_url?.substring(0, 100),
+              imageUrl: p.images[0].imageUrl?.substring(0, 100),
+              url: p.images[0].url?.substring(0, 100),
+              alt_text: p.images[0].alt_text,
+              order_index: p.images[0].order_index
+            } : null,
+            allImageKeys: p.images?.[0] ? Object.keys(p.images[0]) : []
+          }))
+        );
+      }
+      
       // Сортируем товары:
       // 1. Сначала популярные (из топ 100) в наличии
       // 2. Затем популярные без наличия  
@@ -438,13 +459,13 @@
   jsonLd={collectionJsonLd}
 />
 
-<div class="container-custom py-8">
+<div class="container-custom py-4 md:py-6">
   <!-- Заголовок -->
-  <div class="mb-8">
-    <h1 class="text-3xl font-bold text-neutral-900 mb-2">
+  <div class="mb-4 md:mb-6">
+    <h1 class="text-xl md:text-2xl font-bold text-neutral-900 mb-1">
       {filters.search ? `Поиск: "${filters.search}"` : 'Каталог автозапчастей'}
     </h1>
-    <p class="text-neutral-600">
+    <p class="text-sm md:text-base text-neutral-600">
       {#if isLoading}
         Загрузка...
       {:else}
@@ -453,9 +474,9 @@
     </p>
   </div>
 
-  <div class="flex flex-col lg:flex-row gap-8">
+  <div class="flex flex-col lg:flex-row gap-4 lg:gap-6">
     <!-- Фильтры -->
-    <aside class="lg:w-80">
+    <aside class="lg:w-64 xl:w-72">
       <CatalogFilters
         {brands}
         {warehouses}
@@ -469,19 +490,19 @@
     <main class="flex-1">
       {#if isLoading}
         <!-- Скелетон загрузки -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-4 gap-2 md:gap-3 items-stretch">
           {#each Array(12) as _}
-            <div class="card p-6 animate-pulse">
-              <div class="bg-neutral-200 h-48 rounded-lg mb-4"></div>
-              <div class="bg-neutral-200 h-4 rounded mb-2"></div>
-              <div class="bg-neutral-200 h-4 rounded w-3/4 mb-4"></div>
-              <div class="bg-neutral-200 h-6 rounded w-1/2"></div>
+            <div class="card p-3 animate-pulse">
+              <div class="bg-neutral-200 h-32 rounded-lg mb-2"></div>
+              <div class="bg-neutral-200 h-3 rounded mb-1.5"></div>
+              <div class="bg-neutral-200 h-3 rounded w-3/4 mb-2"></div>
+              <div class="bg-neutral-200 h-5 rounded w-1/2"></div>
             </div>
           {/each}
         </div>
       {:else if hasParts}
         <!-- Сетка товаров -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-4 gap-2 md:gap-3 mb-8 items-stretch">
           {#each parts as part}
             <PartCard {part} isPopular={part.isPopular || false} on:addToCart={handleAddToCart} />
           {/each}

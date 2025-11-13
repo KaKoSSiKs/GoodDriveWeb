@@ -149,11 +149,11 @@
           <h2 class="text-xl font-semibold text-gray-900 mb-4">Информация о клиенте</h2>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label class="text-sm font-medium text-gray-700">Имя</label>
+              <span class="text-sm font-medium text-gray-700">Имя</span>
               <p class="text-base text-gray-900 mt-1">{customer.name}</p>
             </div>
             <div>
-              <label class="text-sm font-medium text-gray-700">Телефон</label>
+              <span class="text-sm font-medium text-gray-700">Телефон</span>
               <p class="text-base text-gray-900 mt-1">
                 <a href="tel:{customer.phone}" class="text-primary-600 hover:text-primary-700">
                   {customer.phone}
@@ -162,7 +162,7 @@
             </div>
             {#if customer.email}
               <div>
-                <label class="text-sm font-medium text-gray-700">Email</label>
+                <span class="text-sm font-medium text-gray-700">Email</span>
                 <p class="text-base text-gray-900 mt-1">
                   <a href="mailto:{customer.email}" class="text-primary-600 hover:text-primary-700">
                     {customer.email}
@@ -171,7 +171,7 @@
               </div>
             {/if}
             <div>
-              <label class="text-sm font-medium text-gray-700">Категория</label>
+              <span class="text-sm font-medium text-gray-700">Категория</span>
               <p class="mt-1">
                 <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium {getCategoryColor(customer.category)}">
                   {customer.category_display || (customer.totalOrders === 1 ? 'Новый клиент' : customer.totalOrders >= 2 ? 'Постоянный клиент' : 'Новый клиент')}
@@ -180,13 +180,13 @@
             </div>
             {#if customer.city}
               <div>
-                <label class="text-sm font-medium text-gray-700">Город</label>
+                <span class="text-sm font-medium text-gray-700">Город</span>
                 <p class="text-base text-gray-900 mt-1">{customer.city}</p>
               </div>
             {/if}
             {#if customer.address}
               <div class="md:col-span-2">
-                <label class="text-sm font-medium text-gray-700">Адрес</label>
+                <span class="text-sm font-medium text-gray-700">Адрес</span>
                 <p class="text-base text-gray-900 mt-1">{customer.address}</p>
               </div>
             {/if}

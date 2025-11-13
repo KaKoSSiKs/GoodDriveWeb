@@ -76,11 +76,21 @@
   <div 
     class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-2 sm:p-4"
     onclick={handleClose}
+    onkeydown={(e) => e.key === 'Escape' && handleClose()}
+    role="dialog"
+    aria-modal="true"
+    tabindex="-1"
   >
     <!-- Modal -->
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <div 
       class="bg-white rounded-xl sm:rounded-2xl shadow-2xl max-w-4xl w-full max-h-[95vh] overflow-y-auto"
       onclick={(e) => e.stopPropagation()}
+      role="region"
+      aria-label="Содержимое модального окна"
+      tabindex="0"
     >
       {#if isLoadingDetails}
         <!-- Загрузка -->
@@ -100,6 +110,7 @@
             </div>
             <button 
               onclick={handleClose}
+              aria-label="Закрыть"
               class="w-10 h-10 rounded-full hover:bg-gray-100 flex items-center justify-center transition-colors"
             >
               <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
