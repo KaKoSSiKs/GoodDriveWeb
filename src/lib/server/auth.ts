@@ -2,19 +2,19 @@
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import type { User } from '@prisma/client';
-import { JWT_SECRET as ENV_JWT_SECRET } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 
 const SALT_ROUNDS = 10;
 
 // КРИТИЧНО: JWT_SECRET должен быть установлен в environment variables
 // В production ОБЯЗАТЕЛЬНО использовать сильный случайный ключ (минимум 32 символа)
-// Не проверяем во время импорта модуля, чтобы не ломать сборку Docker
-// Проверка будет выполнена во время выполнения функций (runtime)
-// Используем правильный способ импорта переменных окружения в SvelteKit
-const JWT_SECRET = ENV_JWT_SECRET || process.env.JWT_SECRET;
+// Используем $env/dynamic/private для runtime переменных (не требуются во время сборки)
+// Это позволяет не включать секреты в build-time и использовать их только в runtime
 
 // Функция для проверки и получения JWT_SECRET (вызывается во время выполнения)
 function getJwtSecretWithValidation(): string {
+  const JWT_SECRET = env.JWT_SECRET || process.env.JWT_SECRET;
+  
   if (!JWT_SECRET) {
     // Предупреждение при первом использовании
     console.error('❌ CRITICAL SECURITY ERROR:');
@@ -97,6 +97,8 @@ export function generateToken(user: { id: number; email: string; isAdmin: boolea
  * Verify JWT token
  */
 export function verifyToken(token: string): JWTPayload | null {
+	const JWT_SECRET = env.JWT_SECRET || process.env.JWT_SECRET;
+	
 	if (!JWT_SECRET) {
 		console.error('JWT_SECRET is not set. Cannot verify token.');
 		return null;
