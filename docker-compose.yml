@@ -48,11 +48,16 @@ services:
     command: >
       sh -c "
         echo '🔧 Исправление пользователя MySQL...' &&
-        until mysqladmin ping -h db -u root -p$${MYSQL_ROOT_PASSWORD:-rootpassword} --silent; do
+        until mysqladmin ping -h db -u root -p\"$${MYSQL_ROOT_PASSWORD:-rootpassword}\" --silent 2>/dev/null; do
           echo '⏳ Ожидание MySQL...' &&
           sleep 2
         done &&
-        mysql -h db -u root -p$${MYSQL_ROOT_PASSWORD:-rootpassword} -e \"ALTER USER '$${MYSQL_USER:-gooddrive_user}'@'%' IDENTIFIED WITH mysql_native_password BY '$${MYSQL_PASSWORD:-gooddrive_password}'; GRANT ALL PRIVILEGES ON \`$${MYSQL_DATABASE:-gooddrive_db}\`.* TO '$${MYSQL_USER:-gooddrive_user}'@'%'; FLUSH PRIVILEGES; SELECT User, Host, plugin FROM mysql.user WHERE User = '$${MYSQL_USER:-gooddrive_user}';\" &&
+        mysql -h db -u root -p\"$${MYSQL_ROOT_PASSWORD:-rootpassword}\" <<EOF
+        ALTER USER '$${MYSQL_USER:-gooddrive_user}'@'%' IDENTIFIED WITH mysql_native_password BY '$${MYSQL_PASSWORD:-gooddrive_password}';
+        GRANT ALL PRIVILEGES ON \`$${MYSQL_DATABASE:-gooddrive_db}\`.* TO '$${MYSQL_USER:-gooddrive_user}'@'%';
+        FLUSH PRIVILEGES;
+        SELECT User, Host, plugin FROM mysql.user WHERE User = '$${MYSQL_USER:-gooddrive_user}';
+        EOF
         echo '✅ Пользователь MySQL исправлен'
       "
 
