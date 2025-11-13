@@ -49,7 +49,8 @@ services:
       - "3000:3000"
     environment:
       # Переменные окружения для runtime
-      DATABASE_URL: ${DATABASE_URL:-mysql://gooddrive_user:gooddrive_password@db:3306/gooddrive_db}
+      # Явно устанавливаем DATABASE_URL для Docker Compose (сервис называется 'db', не 'mysql')
+      DATABASE_URL: mysql://gooddrive_user:gooddrive_password@db:3306/gooddrive_db
       JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
       NODE_ENV: production
       PORT: 3000
@@ -66,14 +67,14 @@ services:
     command: >
       sh -c "
         echo '🔍 Проверка DATABASE_URL...' &&
-        echo 'DATABASE_URL='$$DATABASE_URL &&
+        echo \"DATABASE_URL=$$DATABASE_URL\" &&
         echo '' &&
         echo '⏳ Ожидание готовности MySQL (дополнительная задержка)...' &&
         sleep 5 &&
         echo '🚀 Применение миграций Prisma...' &&
         for i in 1 2 3 4 5; do
           npm exec prisma migrate deploy && break || {
-            echo '⚠️ Попытка $$i/5 не удалась, повтор через 5 секунд...' &&
+            echo \"⚠️ Попытка $$i/5 не удалась, повтор через 5 секунд...\" &&
             sleep 5
           }
         done &&
