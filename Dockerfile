@@ -22,7 +22,6 @@ ENV PUBLIC_YM_COUNTER_ID=${PUBLIC_YM_COUNTER_ID}
 ENV PUBLIC_GA4_ID=${PUBLIC_GA4_ID}
 ENV PUBLIC_GOOGLE_VERIFICATION=${PUBLIC_GOOGLE_VERIFICATION}
 ENV PUBLIC_YANDEX_VERIFICATION=${PUBLIC_YANDEX_VERIFICATION}
-ENV NODE_ENV=production
 
 # Копируем package files (package.json и package-lock.json)
 # package-lock.json нужен для npm ci
@@ -30,7 +29,12 @@ COPY package.json ./
 COPY package-lock.json ./
 
 # Устанавливаем все зависимости (включая dev для сборки)
+# Важно: не устанавливаем NODE_ENV=production до установки зависимостей,
+# иначе dev-зависимости (vite и др.) не будут установлены
 RUN npm ci --legacy-peer-deps
+
+# Устанавливаем NODE_ENV=production для сборки
+ENV NODE_ENV=production
 
 # Копируем Prisma схему
 COPY prisma ./prisma/
