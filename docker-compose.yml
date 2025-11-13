@@ -24,11 +24,11 @@ services:
     networks:
       - gooddrive-network
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-rootpassword}"]
-      interval: 10s
+      test: ["CMD", "sh", "-c", "mysqladmin ping -h localhost -u root -p${MYSQL_ROOT_PASSWORD:-rootpassword} && mysql -h localhost -u root -p${MYSQL_ROOT_PASSWORD:-rootpassword} -e 'SELECT 1' ${MYSQL_DATABASE:-gooddrive_db}"]
+      interval: 5s
       timeout: 5s
-      retries: 5
-      start_period: 30s
+      retries: 10
+      start_period: 40s
 
   # SvelteKit Application
   app:
@@ -65,8 +65,18 @@ services:
     # Команда запуска: миграции -> импорт данных -> запуск приложения
     command: >
       sh -c "
+        echo '🔍 Проверка DATABASE_URL...' &&
+        echo 'DATABASE_URL='$$DATABASE_URL &&
+        echo '' &&
+        echo '⏳ Ожидание готовности MySQL (дополнительная задержка)...' &&
+        sleep 5 &&
         echo '🚀 Применение миграций Prisma...' &&
-        npm exec prisma migrate deploy &&
+        for i in 1 2 3 4 5; do
+          npm exec prisma migrate deploy && break || {
+            echo '⚠️ Попытка $$i/5 не удалась, повтор через 5 секунд...' &&
+            sleep 5
+          }
+        done &&
         echo '✅ Миграции применены' &&
         echo '' &&
         echo '📦 Импорт данных из CSV...' &&
