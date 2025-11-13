@@ -24,8 +24,10 @@ ENV PUBLIC_GOOGLE_VERIFICATION=${PUBLIC_GOOGLE_VERIFICATION}
 ENV PUBLIC_YANDEX_VERIFICATION=${PUBLIC_YANDEX_VERIFICATION}
 ENV NODE_ENV=production
 
-# Копируем package files
-COPY package*.json ./
+# Копируем package files (package.json и package-lock.json)
+# package-lock.json нужен для npm ci
+COPY package.json ./
+COPY package-lock.json ./
 
 # Устанавливаем все зависимости (включая dev для сборки)
 RUN npm ci --legacy-peer-deps
@@ -54,11 +56,13 @@ RUN apk add --no-cache openssl libc6-compat
 ENV NODE_ENV=production
 ENV PORT=3000
 
-# Копируем package files
-COPY package*.json ./
+# Копируем package files и package-lock.json из builder
+# (package-lock.json точно есть в builder после npm ci на строке 31)
+COPY --from=builder /app/package.json ./
+COPY --from=builder /app/package-lock.json ./
 
 # Устанавливаем только production зависимости
-RUN npm ci --only=production --legacy-peer-deps && \
+RUN npm ci --omit=dev --legacy-peer-deps && \
     npm cache clean --force
 
 # Копируем Prisma схему и CLI из builder
