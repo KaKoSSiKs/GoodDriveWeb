@@ -2,6 +2,7 @@
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import type { User } from '@prisma/client';
+import { JWT_SECRET as ENV_JWT_SECRET } from '$env/static/private';
 
 const SALT_ROUNDS = 10;
 
@@ -9,7 +10,8 @@ const SALT_ROUNDS = 10;
 // В production ОБЯЗАТЕЛЬНО использовать сильный случайный ключ (минимум 32 символа)
 // Не проверяем во время импорта модуля, чтобы не ломать сборку Docker
 // Проверка будет выполнена во время выполнения функций (runtime)
-const JWT_SECRET = process.env.JWT_SECRET;
+// Используем правильный способ импорта переменных окружения в SvelteKit
+const JWT_SECRET = ENV_JWT_SECRET || process.env.JWT_SECRET;
 
 // Функция для проверки и получения JWT_SECRET (вызывается во время выполнения)
 function getJwtSecretWithValidation(): string {
@@ -42,6 +44,7 @@ function getJwtSecretWithValidation(): string {
   return JWT_SECRET;
 }
 
+// JWT_EXPIRES_IN - используем process.env как fallback, так как это опциональная переменная
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 
 export interface JWTPayload {

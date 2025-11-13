@@ -49,113 +49,79 @@
     try {
       loading = true;
       
-      // Загружаем топ 100 популярных товаров для определения "Хит продаж"
-      let top100PartIds = new Set();
+      // Загружаем популярные товары из аналитики (опционально, не блокируем если не работает)
+      let popularPartIds = new Map(); // Map для хранения порядка популярности
       try {
         const productsStats = await fetch('/api/analytics/products?limit=100').then(r => r.json());
         if (productsStats.success && productsStats.topProducts && productsStats.topProducts.length > 0) {
-          // Получаем ID топ 100 товаров
-          top100PartIds = new Set(productsStats.topProducts.map(p => p.partId));
-          console.log('Загружено топ 100 товаров:', top100PartIds.size);
+          productsStats.topProducts.forEach((p, index) => {
+            popularPartIds.set(p.partId, index + 1); // Сохраняем порядок (1 = самый популярный)
+          });
+          console.log('Загружено популярных товаров:', popularPartIds.size);
         }
       } catch (error) {
-        console.error('Ошибка загрузки топ товаров:', error);
+        console.warn('Не удалось загрузить аналитику популярности (продолжаем без неё):', error);
       }
       
-      // Загружаем все товары в наличии
-      let allAvailableParts = [];
+      // Загружаем товары в наличии, отсортированные по наличию (по убыванию)
+      let allParts = [];
       try {
-        const availablePartsResponse = await partsApi.getParts({
-          page_size: 1000,
-          in_stock: true // Только товары в наличии
+        const partsResponse = await partsApi.getParts({
+          page: 1,
+          page_size: 100,
+          in_stock: true,
+          ordering: '-available' // Сначала товары с большим количеством
         });
-        allAvailableParts = availablePartsResponse.results || [];
-        console.log('Загружено товаров в наличии:', allAvailableParts.length);
+        allParts = partsResponse.results || [];
+        console.log('Загружено товаров в наличии:', allParts.length);
       } catch (error) {
-        console.error('Ошибка загрузки товаров в наличии:', error);
+        console.error('Ошибка загрузки товаров:', error);
+        // Fallback: загружаем все товары и фильтруем на клиенте
+        try {
+          const partsResponse = await partsApi.getParts({
+            page: 1,
+            page_size: 100,
+            ordering: '-available'
+          });
+          allParts = (partsResponse.results || []).filter(p => (Number(p.available) || 0) > 0);
+          console.log('Загружено всех товаров (отфильтровано на клиенте):', allParts.length);
+        } catch (fallbackError) {
+          console.error('Ошибка загрузки всех товаров:', fallbackError);
+          allParts = [];
+        }
       }
       
-      // Если нет товаров в наличии, выходим
-      if (allAvailableParts.length === 0) {
+      // Если нет товаров, выходим
+      if (allParts.length === 0) {
         console.warn('Нет товаров в наличии');
         featuredParts = [];
         loading = false;
         return;
       }
       
-      // Загружаем популярные товары (топ 20)
-      let popularPartIds = [];
-      try {
-        const productsStats = await fetch('/api/analytics/products?limit=20').then(r => r.json());
-        if (productsStats.success && productsStats.topProducts && productsStats.topProducts.length > 0) {
-          popularPartIds = productsStats.topProducts.map(p => p.partId);
-          console.log('Найдено популярных товаров в статистике:', popularPartIds.length);
+      // Сортируем товары: сначала по популярности (если есть данные), затем по наличию
+      allParts.sort((a, b) => {
+        const aPopular = popularPartIds.get(a.id) || Infinity; // Если нет в топе, ставим в конец
+        const bPopular = popularPartIds.get(b.id) || Infinity;
+        
+        // Сначала сортируем по популярности
+        if (aPopular !== bPopular) {
+          return aPopular - bPopular;
         }
-      } catch (error) {
-        console.error('Ошибка загрузки популярных товаров:', error);
-      }
-      
-      // Разделяем товары на популярные и не популярные
-      const popularParts = [];
-      const randomParts = [];
-      
-      allAvailableParts.forEach(part => {
-        const partId = part.id;
-        if (popularPartIds.includes(partId)) {
-          // Это популярный товар
-          const index = popularPartIds.indexOf(partId);
-          popularParts.push({ part, order: index });
-        } else {
-          // Это не популярный товар
-          randomParts.push(part);
-        }
+        
+        // Если популярность одинаковая, сортируем по наличию (больше = выше)
+        const aAvailable = Number(a.available) || 0;
+        const bAvailable = Number(b.available) || 0;
+        return bAvailable - aAvailable;
       });
       
-      // Сортируем популярные товары по порядку в топе
-      popularParts.sort((a, b) => a.order - b.order);
-      const sortedPopularParts = popularParts.map(item => item.part);
-      
-      console.log('Найдено популярных товаров в наличии:', sortedPopularParts.length);
-      console.log('Найдено не популярных товаров в наличии:', randomParts.length);
-      
-      // Перемешиваем не популярные товары
-      const shuffledRandom = [...randomParts].sort(() => Math.random() - 0.5);
-      
-      // Объединяем: сначала популярные (до 8), затем рандомные (до 8)
-      const maxPopular = Math.min(8, sortedPopularParts.length);
-      const maxRandom = 8 - maxPopular;
-      
-      if (sortedPopularParts.length > 0) {
-        // Есть популярные товары - показываем их первыми
-        featuredParts = [
-          ...sortedPopularParts.slice(0, maxPopular),
-          ...shuffledRandom.slice(0, maxRandom)
-        ].slice(0, 8);
-      } else {
-        // Нет популярных товаров - показываем просто рандомные товары в наличии
-        featuredParts = shuffledRandom.slice(0, 8);
-        console.log('Популярных товаров нет, показываем рандомные');
-      }
-      
-      // Добавляем флаг популярности для топ 100
-      featuredParts = featuredParts.map(p => ({
+      // Берем топ 8 товаров
+      featuredParts = allParts.slice(0, 8).map(p => ({
         ...p,
-        isPopular: top100PartIds.has(p.id)
+        isPopular: popularPartIds.has(p.id) // Флаг популярности для отображения "Хит продаж"
       }));
       
-      console.log('Итого отображается товаров:', featuredParts.length);
-      
-      // Если все еще нет товаров, показываем любые товары в наличии (fallback)
-      if (featuredParts.length === 0 && allAvailableParts.length > 0) {
-        console.warn('Fallback: показываем любые товары в наличии');
-        featuredParts = allAvailableParts
-          .sort(() => Math.random() - 0.5)
-          .slice(0, 8)
-          .map(p => ({
-            ...p,
-            isPopular: top100PartIds.has(p.id)
-          }));
-      }
+      console.log('Отображается товаров:', featuredParts.length);
 
       // Загружаем статистику товаров
       const partsResponse = await partsApi.getParts({

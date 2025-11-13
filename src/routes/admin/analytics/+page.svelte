@@ -25,7 +25,7 @@
       
       const ordersResponse = await ordersApi.getOrders({
         created_after: dateFrom.toISOString().split('T')[0],
-        page_size: 10000, // Увеличиваем для получения всех заказов за период
+        page_size: 100, // Максимальное допустимое значение
         ordering: 'created_at'
       });
       

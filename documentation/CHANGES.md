@@ -55,7 +55,7 @@
 - Использование mysql_native_password для совместимости с Prisma
 
 #### Prisma seed.js
-- Создание администратора (admin@gooddrive.com / admin123)
+- Создание администратора (admin / 12345678)
 - 5 категорий расходов
 - SEO метаданные для главной и каталога
 - 5 брендов (Bosch, Brembo, Mann-Filter, Castrol, NGK)
@@ -132,7 +132,7 @@ docker-compose up -d
 | Сервис | URL | Credentials |
 |--------|-----|-------------|
 | **Приложение** | http://localhost:3000 | - |
-| **Админ-панель** | http://localhost:3000/admin | admin@gooddrive.com / admin123 |
+| **Админ-панель** | http://localhost:3000/admin | admin / 12345678 |
 | **PhpMyAdmin** | http://localhost:8080 | gooddrive_user / gooddrive_password |
 | **MySQL** | localhost:3306 | gooddrive / gooddrive_user |
 

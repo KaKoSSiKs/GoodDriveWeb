@@ -25,16 +25,32 @@ class ApiClient {
     try {
       const response = await fetch(url, config);
       
+      // Пытаемся распарсить JSON ответ
+      let data;
+      try {
+        const text = await response.text();
+        data = text ? JSON.parse(text) : null;
+      } catch (parseError) {
+        console.error('Failed to parse JSON response:', parseError);
+        throw new Error(`Invalid JSON response: ${response.status} ${response.statusText}`);
+      }
+      
+      // Проверяем структуру ответа с success флагом
+      if (data && typeof data === 'object' && 'success' in data && !data.success) {
+        const errorMessage = data.error || data.message || 'Request failed';
+        console.error('API returned error:', errorMessage, data);
+        throw new Error(errorMessage);
+      }
+      
       if (!response.ok) {
         // Пытаемся получить детальную информацию об ошибке
         let errorMessage = `HTTP error! status: ${response.status}`;
-        try {
-          const errorData = await response.json();
-          if (errorData.error) {
-            errorMessage = errorData.error;
+        if (data) {
+          if (data.error) {
+            errorMessage = data.error;
+          } else if (data.message) {
+            errorMessage = data.message;
           }
-        } catch (e) {
-          // Если не удалось распарсить JSON, используем стандартное сообщение
         }
         
         // Специальная обработка ошибок авторизации
@@ -46,9 +62,13 @@ class ApiClient {
         throw new Error(errorMessage);
       }
       
-      return await response.json();
+      return data;
     } catch (error) {
-      console.error('API request failed:', error);
+      console.error('API request failed:', {
+        endpoint,
+        error: error.message,
+        stack: error.stack
+      });
       throw error;
     }
   }
@@ -56,8 +76,15 @@ class ApiClient {
   async get(endpoint, params = {}) {
     const url = new URL(endpoint, window.location.origin);
     Object.keys(params).forEach(key => {
-      if (params[key] !== null && params[key] !== undefined && params[key] !== '') {
-        url.searchParams.append(key, params[key]);
+      const value = params[key];
+      // Пропускаем null, undefined и пустые строки
+      if (value !== null && value !== undefined && value !== '') {
+        // Boolean значения преобразуем в строки 'true'/'false'
+        if (typeof value === 'boolean') {
+          url.searchParams.append(key, value ? 'true' : 'false');
+        } else {
+          url.searchParams.append(key, value);
+        }
       }
     });
 

@@ -70,7 +70,7 @@
     try {
       const params = {
         ordering: '-created_at',
-        page_size: 1000
+        page_size: 100 // Максимальное допустимое значение
       };
       
       if (filters.search) params.search = filters.search;
