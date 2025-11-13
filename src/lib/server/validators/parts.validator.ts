@@ -6,6 +6,7 @@ export const partsQuerySchema = z.object({
 	page: z.coerce.number().int().min(1).max(1000).default(1),
 	page_size: z.coerce.number().int().min(1).max(100).default(20),
 	search: z.string().max(200).optional(),
+	category: z.enum(['electronics', 'engine', 'suspension', 'brakes']).optional(),
 	// Поддержка множественных брендов через запятую: "1,2,3"
 	brand: z.union([
 		z.coerce.number().int().positive(),

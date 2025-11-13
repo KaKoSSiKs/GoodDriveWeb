@@ -143,6 +143,48 @@ export const partsApi = {
   async getLowStockParts(params = {}) {
     return api.get('/api/parts', { ...params, low_stock: 'true' });
   },
+  
+  async uploadPartImage(partId, file) {
+    const formData = new FormData();
+    formData.append('image', file);
+    
+    const url = `/api/parts/${partId}/images`;
+    const response = await fetch(url, {
+      method: 'POST',
+      body: formData,
+      credentials: 'same-origin'
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `Failed to upload image: ${response.status} ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    if (data.success && data.data) {
+      return data.data;
+    }
+    throw new Error(data.error || 'Failed to upload image');
+  },
+  
+  async deletePartImage(partId, imageId) {
+    const url = `/api/parts/${partId}/images/${imageId}`;
+    const response = await fetch(url, {
+      method: 'DELETE',
+      credentials: 'same-origin'
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `Failed to delete image: ${response.status} ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    if (!data.success) {
+      throw new Error(data.error || 'Failed to delete image');
+    }
+    return data;
+  },
 };
 
 // API для работы с брендами

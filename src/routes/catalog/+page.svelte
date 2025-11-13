@@ -27,6 +27,7 @@
   // Получаем начальные значения фильтров из URL (на верхнем уровне)
   const initialFilters = {
     search: ($page.url.searchParams.get('search') || '').replace(/\+/g, ' '),
+    category: $page.url.searchParams.get('category') || '',
     brand: $page.url.searchParams.get('brand') || '',
     warehouse: $page.url.searchParams.get('warehouse') || '',
     price_min: $page.url.searchParams.get('price_min') || '',
@@ -85,6 +86,9 @@
       // Добавляем фильтры, если они есть
       if (filters.search && filters.search.trim()) {
         params.search = filters.search.trim();
+      }
+      if (filters.category && filters.category.trim()) {
+        params.category = filters.category.trim();
       }
       if (filters.brand) {
         params.brand = filters.brand;

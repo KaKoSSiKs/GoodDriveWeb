@@ -7,6 +7,7 @@ import { partsQuerySchema } from '$lib/server/validators/parts.validator';
 import { createApiHandler, handleError, createErrorResponse, ValidationError } from '$lib/server/error-handler';
 import { logger } from '$lib/server/logger';
 import type { Prisma } from '@prisma/client';
+import { CATEGORIES, getCategoryKeywords } from '$lib/utils/categories';
 
 // Валидация и обработка запроса
 const handler: RequestHandler = async ({ url }) => {
@@ -64,38 +65,83 @@ const handler: RequestHandler = async ({ url }) => {
 		throw new ValidationError(errorDetails, error);
 	}
 
-	const { page, page_size, search, brand, warehouse, price_min, price_max, low_stock, available_max, in_stock, ordering } = params;
+	const { page, page_size, search, category, brand, warehouse, price_min, price_max, low_stock, available_max, in_stock, ordering } = params;
 
 	// Build where clause
 	const where: Prisma.PartWhereInput = { isActive: true };
 	
+	// Фильтрация по категории (приоритет над обычным поиском)
+	if (category) {
+		const categoryKeywords = getCategoryKeywords(category);
+		if (categoryKeywords.length > 0) {
+			// Используем все ключевые слова категории для поиска
+			// Товар должен содержать хотя бы одно из ключевых слов категории
+			const searchConditions = categoryKeywords.map(keyword => ({
+				OR: [
+					{ title: { contains: keyword } },
+					{ originalNumber: { contains: keyword } },
+					{ manufacturerNumber: { contains: keyword } },
+					{ description: { contains: keyword } }
+				]
+			}));
+			
+			if (where.OR) {
+				where.OR = [...where.OR, ...searchConditions];
+			} else {
+				where.OR = searchConditions;
+			}
+		}
+	}
+	
 	// Поиск (поддержка нескольких слов через пробел или +)
-	if (search) {
+	// Умная фильтрация по категориям - определяет категорию по ключевым словам
+	if (search && !category) {
 		// Заменяем + на пробелы и разбиваем на слова
 		const searchTerms = search.replace(/\+/g, ' ').trim().split(/\s+/).filter(term => term.length > 0);
 		
 		if (searchTerms.length > 0) {
-			// Если одно слово - простой поиск
-			// MySQL по умолчанию регистронезависим для utf8mb4_unicode_ci collation
-			if (searchTerms.length === 1) {
-				const term = searchTerms[0];
-				where.OR = [
+			// Проверяем, является ли поиск запросом по категории
+			// Для этого проверяем, совпадают ли слова с ключевыми словами категорий
+			let categoryKeywords: string[] = [];
+			let isCategorySearch = false;
+			
+			// Проверяем каждую категорию
+			for (const category of CATEGORIES) {
+				const categoryWords = category.keywords.map(k => k.toLowerCase());
+				const searchWords = searchTerms.map(t => t.toLowerCase());
+				
+				// Если хотя бы одно слово поиска совпадает с ключевыми словами категории
+				const hasMatch = searchWords.some(sw => categoryWords.some(cw => cw.includes(sw) || sw.includes(cw)));
+				
+				if (hasMatch) {
+					isCategorySearch = true;
+					// Добавляем все ключевые слова категории для более точного поиска
+					categoryKeywords = [...categoryKeywords, ...category.keywords];
+				}
+			}
+			
+			// Если это поиск по категории, используем все ключевые слова категории
+			// Иначе используем только введенные слова
+			const finalSearchTerms = isCategorySearch && categoryKeywords.length > 0
+				? [...new Set([...searchTerms, ...categoryKeywords])] // Объединяем и убираем дубликаты
+				: searchTerms;
+			
+			// Для каждого ключевого слова ищем в любом из полей (title, description, номера)
+			// Между словами используем OR - товар должен содержать хотя бы одно из ключевых слов
+			const searchConditions = finalSearchTerms.map(term => ({
+				OR: [
 					{ title: { contains: term } },
 					{ originalNumber: { contains: term } },
-					{ manufacturerNumber: { contains: term } }
-				];
+					{ manufacturerNumber: { contains: term } },
+					{ description: { contains: term } }
+				]
+			}));
+			
+			// Если уже есть OR условия, объединяем их
+			if (where.OR) {
+				where.OR = [...where.OR, ...searchConditions];
 			} else {
-				// Если несколько слов - все должны быть найдены (AND)
-				where.AND = where.AND || [];
-				where.AND.push({
-					AND: searchTerms.map(term => ({
-						OR: [
-							{ title: { contains: term } },
-							{ originalNumber: { contains: term } },
-							{ manufacturerNumber: { contains: term } }
-						]
-					}))
-				});
+				where.OR = searchConditions;
 			}
 		}
 	}

@@ -115,7 +115,7 @@ model PartImage {
   id         Int     @id @default(autoincrement())
   partId     Int     @map("part_id")
   image      String? @db.VarChar(255)
-  imageUrl   String? @map("image_url") @db.VarChar(500)
+  imageUrl   String? @map("image_url") @db.LongText
   altText    String? @map("alt_text") @db.VarChar(200)
   orderIndex Int     @default(0) @map("order_index") @db.UnsignedInt
 

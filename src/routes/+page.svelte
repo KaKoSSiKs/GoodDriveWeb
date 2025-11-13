@@ -213,7 +213,7 @@
   <div class="container-custom">
     <h2 class="text-3xl font-semibold text-gray-900 mb-10 text-center">Категории запчастей</h2>
     <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
-      <a href="/catalog?search=датчик+модуль+электроника" class="card group hover:border-primary-300 hover:shadow-lg transition-all duration-200">
+      <a href="/catalog?category=electronics" class="card group hover:border-primary-300 hover:shadow-lg transition-all duration-200">
         <div class="p-6 text-center">
           <div class="w-16 h-16 bg-gray-50 rounded-xl flex items-center justify-center mx-auto mb-4 group-hover:bg-primary-50 transition-colors">
             <img src="/icons/electronics_ic.png" alt="Электроника" class="w-10 h-10 object-contain icon-primary" />
@@ -223,7 +223,7 @@
         </div>
       </a>
       
-      <a href="/catalog?search=двигатель+фильтр+масло+ремень" class="card group hover:border-primary-300 hover:shadow-lg transition-all duration-200">
+      <a href="/catalog?category=engine" class="card group hover:border-primary-300 hover:shadow-lg transition-all duration-200">
         <div class="p-6 text-center">
           <div class="w-16 h-16 bg-gray-50 rounded-xl flex items-center justify-center mx-auto mb-4 group-hover:bg-primary-50 transition-colors">
             <img src="/icons/engine_ic.png" alt="Двигатель" class="w-10 h-10 object-contain icon-primary" />
@@ -233,7 +233,7 @@
         </div>
       </a>
       
-      <a href="/catalog?search=подвеска+стойка+амортизатор" class="card group hover:border-primary-300 hover:shadow-lg transition-all duration-200">
+      <a href="/catalog?category=suspension" class="card group hover:border-primary-300 hover:shadow-lg transition-all duration-200">
         <div class="p-6 text-center">
           <div class="w-16 h-16 bg-gray-50 rounded-xl flex items-center justify-center mx-auto mb-4 group-hover:bg-primary-50 transition-colors">
             <img src="/icons/suspension_ic.png" alt="Подвеска" class="w-10 h-10 object-contain icon-primary" />
@@ -243,7 +243,7 @@
         </div>
       </a>
       
-      <a href="/catalog?search=тормоз+колодки+диск" class="card group hover:border-primary-300 hover:shadow-lg transition-all duration-200">
+      <a href="/catalog?category=brakes" class="card group hover:border-primary-300 hover:shadow-lg transition-all duration-200">
         <div class="p-6 text-center">
           <div class="w-16 h-16 bg-gray-50 rounded-xl flex items-center justify-center mx-auto mb-4 group-hover:bg-primary-50 transition-colors">
             <img src="/icons/brake_ic.png" alt="Тормоза" class="w-10 h-10 object-contain icon-primary" />

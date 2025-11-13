@@ -43,31 +43,86 @@
     
     try {
       isUploadingImage = true;
+      let successCount = 0;
+      let errorCount = 0;
+      const errors = [];
       
       for (const file of files) {
-        // Сразу загружаем изображение на сервер
-        const result = await partsApi.uploadPartImage(part.id, file);
-        uploadedImages.push({
-          url: result.image_url,
-          id: result.id
-        });
+        try {
+          // Проверяем размер файла (максимум 10MB)
+          const maxSize = 10 * 1024 * 1024; // 10MB
+          if (file.size > maxSize) {
+            errors.push(`${file.name}: файл слишком большой (максимум 10MB)`);
+            errorCount++;
+            continue;
+          }
+          
+          // Проверяем тип файла
+          if (!file.type.startsWith('image/')) {
+            errors.push(`${file.name}: файл должен быть изображением`);
+            errorCount++;
+            continue;
+          }
+          
+          // Сразу загружаем изображение на сервер
+          const result = await partsApi.uploadPartImage(part.id, file);
+          uploadedImages.push({
+            url: result.image_url,
+            id: result.id
+          });
+          successCount++;
+        } catch (fileError) {
+          console.error(`Error uploading image ${file.name}:`, fileError);
+          errors.push(`${file.name}: ${fileError.message || 'Ошибка загрузки'}`);
+          errorCount++;
+        }
       }
       
       uploadedImages = [...uploadedImages];
-      alert('Изображения загружены!');
       
-      if (onUpdate) onUpdate();
+      // Показываем результат
+      if (successCount > 0 && errorCount === 0) {
+        alert(`Успешно загружено изображений: ${successCount}`);
+      } else if (successCount > 0 && errorCount > 0) {
+        alert(`Загружено: ${successCount}, ошибок: ${errorCount}\n\n${errors.join('\n')}`);
+      } else {
+        alert(`Ошибка загрузки изображений:\n\n${errors.join('\n')}`);
+      }
+      
+      if (successCount > 0 && onUpdate) {
+        onUpdate();
+      }
     } catch (error) {
       console.error('Error uploading image:', error);
-      alert('Ошибка загрузки изображения');
+      alert(`Ошибка загрузки изображения: ${error.message || 'Неизвестная ошибка'}`);
     } finally {
       isUploadingImage = false;
+      // Сбрасываем input, чтобы можно было загрузить тот же файл снова
+      event.target.value = '';
     }
   }
   
-  function removeImage(index) {
+  async function removeImage(index) {
+    const image = uploadedImages[index];
+    if (!image || !part) return;
+    
+    // Если изображение уже сохранено на сервере (имеет id), удаляем его
+    if (image.id) {
+      try {
+        await partsApi.deletePartImage(part.id, image.id);
+      } catch (error) {
+        console.error('Error deleting image:', error);
+        alert(`Ошибка удаления изображения: ${error.message || 'Неизвестная ошибка'}`);
+        return;
+      }
+    }
+    
+    // Удаляем из локального массива
     uploadedImages.splice(index, 1);
     uploadedImages = [...uploadedImages];
+    
+    // Обновляем данные товара
+    if (onUpdate) onUpdate();
   }
   
   async function handleSave() {
@@ -148,7 +203,11 @@
         use_custom_brand: false,
         use_custom_warehouse: false
       };
-      uploadedImages = [];
+      // Загружаем существующие изображения товара
+      uploadedImages = (part.images || []).map(img => ({
+        url: img.image_url || img.url || '',
+        id: img.id
+      }));
     }
   });
 </script>
