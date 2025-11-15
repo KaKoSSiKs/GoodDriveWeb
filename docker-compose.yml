@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # MySQL Database
   mysql:
@@ -37,7 +35,7 @@ services:
   # SvelteKit Application
   app:
     build:
-      context: ..
+      context: .
       dockerfile: docker/app/Dockerfile
       args:
         PUBLIC_SITE_URL: ${PUBLIC_SITE_URL:-http://localhost}
