@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte';
-  import { partsApi, formatUtils, brandsApi, warehousesApi, API_BASE_URL } from '$lib/utils/api.js';
+  import { partsApi, formatUtils, brandsApi, warehousesApi, stockApi, API_BASE_URL } from '$lib/utils/api.js';
   import ProductEditModal from '$lib/components/admin/ProductEditModal.svelte';
   import AddProductModal from '$lib/components/admin/AddProductModal.svelte';
   
@@ -13,6 +13,7 @@
   let isAddModalOpen = $state(false);
   let isImporting = $state(false);
   let showImportModal = $state(false);
+  let isRecalculatingStock = $state(false);
   
   let filters = $state({
     search: '',
@@ -174,6 +175,30 @@
   function downloadTemplate() {
     window.open('/api/parts/template', '_blank');
   }
+
+  // Пересчёт остатков по заказам
+  async function handleRecalculateStock() {
+    if (!confirm('Пересчитать резерв и доступные остатки по всем товарам на основе заказов?')) {
+      return;
+    }
+
+    try {
+      isRecalculatingStock = true;
+      const response = await stockApi.recalculateFromOrders();
+
+      if (response.success === false) {
+        alert(response.error || 'Ошибка пересчёта остатков');
+      } else {
+        alert('Остатки успешно пересчитаны по заказам');
+        await loadParts();
+      }
+    } catch (error) {
+      console.error('Ошибка пересчёта остатков:', error);
+      alert('Ошибка пересчёта остатков. Попробуйте позже.');
+    } finally {
+      isRecalculatingStock = false;
+    }
+  }
   
   // Экспорт в CSV
   async function exportToCSV() {
@@ -212,7 +237,7 @@
       <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">Остатки склада</h1>
       <p class="text-sm sm:text-base text-gray-600 mt-1 sm:mt-2">Управление товарами и остатками</p>
     </div>
-    <div class="flex space-x-3">
+    <div class="flex flex-wrap gap-2 sm:space-x-3">
       <button
         onclick={handleImportExcel}
         class="btn-outline flex items-center text-sm"
@@ -233,6 +258,33 @@
         </svg>
         <span class="hidden sm:inline">Добавить товар</span>
         <span class="sm:hidden">Добавить</span>
+      </button>
+
+      <button
+        onclick={handleRecalculateStock}
+        class="btn-outline flex items-center text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+        disabled={isRecalculatingStock}
+      >
+        <svg
+          class={`w-4 h-4 sm:w-5 sm:h-5 mr-2 ${isRecalculatingStock ? 'animate-spin' : ''}`}
+          viewBox="0 0 24 24"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          stroke="currentColor"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+          />
+        </svg>
+        <span class="hidden sm:inline">
+          Обновить склад по заказам
+        </span>
+        <span class="sm:hidden">
+          Обновить склад
+        </span>
       </button>
     </div>
   </div>

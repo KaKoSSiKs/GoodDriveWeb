@@ -193,24 +193,24 @@
 
 {#if orderSuccess}
   <!-- Страница успешного заказа -->
-  <div class="container-custom py-8">
+  <div class="container-custom py-6 md:py-8">
     <div class="max-w-2xl mx-auto text-center">
-      <div class="card p-8">
+      <div class="card p-6 md:p-8">
         <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
           <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
           </svg>
         </div>
         
-        <h1 class="text-3xl font-bold text-neutral-900 mb-4">Заказ успешно оформлен!</h1>
-        <p class="text-neutral-600 mb-6">
+        <h1 class="text-2xl md:text-3xl font-bold text-neutral-900 mb-3">Заказ успешно оформлен!</h1>
+        <p class="text-sm md:text-base text-neutral-600 mb-4 md:mb-6">
           Ваш заказ #{orderData?.order_number || orderData?.orderNumber || 'N/A'} принят в обработку. 
           Мы свяжемся с вами в ближайшее время.
         </p>
         
-        <div class="bg-neutral-50 rounded-lg p-6 mb-8">
-          <h2 class="text-lg font-semibold text-neutral-900 mb-4">Детали заказа</h2>
-          <div class="space-y-2 text-sm">
+        <div class="bg-neutral-50 rounded-lg p-4 md:p-6 mb-6 md:mb-8">
+          <h2 class="text-base md:text-lg font-semibold text-neutral-900 mb-3 md:mb-4">Детали заказа</h2>
+          <div class="space-y-2 text-xs md:text-sm">
             <div class="flex justify-between">
               <span class="text-neutral-600">Номер заказа:</span>
               <span class="font-medium">{orderData?.order_number || orderData?.orderNumber || 'N/A'}</span>
@@ -226,7 +226,7 @@
           </div>
         </div>
         
-        <div class="flex flex-col sm:flex-row gap-4">
+        <div class="flex flex-col sm:flex-row gap-3 sm:gap-4">
           <a href="/catalog" class="btn-primary">
             Продолжить покупки
           </a>
@@ -239,15 +239,15 @@
   </div>
 {:else}
   <!-- Форма оформления заказа -->
-  <div class="container-custom py-8">
+  <div class="container-custom py-6 md:py-8">
     <div class="max-w-6xl mx-auto">
       <!-- Заголовок -->
-      <div class="mb-8">
-        <h1 class="text-3xl font-bold text-neutral-900 mb-2">Оформление заказа</h1>
-        <p class="text-neutral-600">Заполните форму для завершения покупки</p>
+      <div class="mb-6 md:mb-8">
+        <h1 class="text-2xl md:text-3xl font-bold text-neutral-900 mb-1.5">Оформление заказа</h1>
+        <p class="text-sm md:text-base text-neutral-600">Заполните форму для завершения покупки</p>
       </div>
       
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
         <!-- Форма -->
         <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
         <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
@@ -273,12 +273,10 @@
           <form 
             onsubmit={handleSubmit}
           >
-            <div 
-              class="space-y-8"
-            >
+            <div class="space-y-6 md:space-y-8">
             <!-- Контактная информация -->
-            <div class="card p-6">
-              <h2 class="text-xl font-semibold text-neutral-900 mb-6">Контактная информация</h2>
+            <div class="card p-4 md:p-6">
+              <h2 class="text-lg md:text-xl font-semibold text-neutral-900 mb-4 md:mb-6">Контактная информация</h2>
               
               <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
@@ -332,8 +330,8 @@
             </div>
             
             <!-- Адрес доставки -->
-            <div class="card p-6">
-              <h2 class="text-xl font-semibold text-neutral-900 mb-6">Адрес доставки</h2>
+            <div class="card p-4 md:p-6">
+              <h2 class="text-lg md:text-xl font-semibold text-neutral-900 mb-4 md:mb-6">Адрес доставки</h2>
               
               <div class="space-y-6">
                 <div>
@@ -384,8 +382,8 @@
             </div>
             
             <!-- Комментарии -->
-            <div class="card p-6">
-              <h2 class="text-xl font-semibold text-neutral-900 mb-6">Дополнительно</h2>
+            <div class="card p-4 md:p-6">
+              <h2 class="text-lg md:text-xl font-semibold text-neutral-900 mb-4 md:mb-6">Дополнительно</h2>
               
               <div>
                 <label for="notes" class="block text-sm font-medium text-neutral-700 mb-2">
@@ -402,7 +400,7 @@
             </div>
             
             <!-- Согласие на обработку персональных данных -->
-            <div class="card p-6 {errors.consent_pd ? 'border-2 border-red-300' : ''}">
+            <div class="card p-4 md:p-6 {errors.consent_pd ? 'border-2 border-red-300' : ''}">
               <div class="flex items-start space-x-3">
                 <input
                   type="checkbox"

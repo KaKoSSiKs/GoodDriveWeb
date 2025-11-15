@@ -66,32 +66,32 @@
 <footer class="bg-neutral-900 text-white">
   <div class="container-custom">
     <!-- Основной контент футера -->
-    <div class="py-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+    <div class="py-8 md:py-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
       <!-- Информация о компании -->
       <div class="lg:col-span-1">
-        <div class="flex items-center space-x-2 mb-4">
-          <div class="w-8 h-8 bg-primary-700 rounded-lg flex items-center justify-center">
-            <span class="text-white font-bold text-lg">G</span>
+        <div class="flex items-center space-x-2 mb-3 md:mb-4">
+          <div class="w-7 h-7 md:w-8 md:h-8 bg-primary-700 rounded-lg flex items-center justify-center">
+            <span class="text-white font-bold text-base md:text-lg">G</span>
           </div>
-          <span class="text-xl font-bold text-white">GoodDrive</span>
+          <span class="text-lg md:text-xl font-bold text-white">GoodDrive</span>
         </div>
-        <p class="text-neutral-300 mb-4">
+        <p class="text-neutral-300 text-sm md:text-base mb-4">
           Интернет-магазин автозапчастей с широким ассортиментом и быстрой доставкой.
         </p>
         <div class="space-y-2">
-          <div class="flex items-center text-neutral-300">
+          <div class="flex items-center text-neutral-300 text-sm md:text-base">
             <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
             </svg>
             <a href="tel:+79227081553" class="hover:text-white transition-colors">+7 (922) 708-15-53</a>
           </div>
-          <div class="flex items-center text-neutral-300">
+          <div class="flex items-center text-neutral-300 text-sm md:text-base">
             <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
             <a href="mailto:89227081553@mail.ru" class="hover:text-white transition-colors">89227081553@mail.ru</a>
           </div>
-          <div class="flex items-center text-neutral-300">
+          <div class="flex items-center text-neutral-300 text-sm md:text-base">
             <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -104,13 +104,13 @@
       <!-- Ссылки -->
       {#each footerLinks as section}
         <div>
-          <h3 class="text-lg font-semibold mb-4">{section.title}</h3>
-          <ul class="space-y-2">
+          <h3 class="text-base md:text-lg font-semibold mb-3 md:mb-4">{section.title}</h3>
+          <ul class="space-y-1.5 md:space-y-2">
             {#each section.links as link}
               <li>
-                <a 
-                  href={link.href} 
-                  class="text-neutral-300 hover:text-white transition-colors"
+                <a
+                  href={link.href}
+                  class="text-neutral-300 hover:text-white transition-colors text-sm md:text-base"
                 >
                   {link.name}
                 </a>
@@ -122,16 +122,16 @@
     </div>
     
     <!-- Социальные сети и подписка -->
-    <div class="py-8 border-t border-neutral-800">
+    <div class="py-6 md:py-8 border-t border-neutral-800">
       <div class="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
         <!-- Социальные сети -->
         <div class="flex items-center space-x-4">
-          <span class="text-neutral-300">Мы в соцсетях:</span>
+          <span class="text-neutral-300 text-sm md:text-base">Мы в соцсетях:</span>
           <div class="flex space-x-3">
             {#each socialLinks as social}
               <a 
                 href={social.href}
-                class="w-10 h-10 bg-neutral-800 rounded-lg flex items-center justify-center hover:bg-primary-700 transition-colors"
+                class="w-9 h-9 md:w-10 md:h-10 bg-neutral-800 rounded-lg flex items-center justify-center hover:bg-primary-700 transition-colors"
                 title={social.name}
               >
                 {#if social.icon === 'telegram'}
@@ -154,18 +154,18 @@
         
         <!-- Подписка на новости -->
         <div class="flex flex-col space-y-2">
-          <span class="text-neutral-300">Подписка на новости:</span>
+          <span class="text-neutral-300 text-sm md:text-base">Подписка на новости:</span>
           <div class="flex flex-col space-y-2">
             <div class="flex">
               <input 
                 type="email" 
                 bind:value={newsletterEmail}
                 placeholder="Ваш email" 
-                class="px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-l-lg text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-primary-500 flex-1"
+                class="px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-l-lg text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-primary-500 flex-1 text-sm"
               />
               <button 
                 onclick={handleNewsletterSubmit}
-                class="px-4 py-2 bg-primary-700 text-white rounded-r-lg hover:bg-primary-800 transition-colors"
+                class="px-3 md:px-4 py-2 bg-primary-700 text-white rounded-r-lg hover:bg-primary-800 transition-colors text-sm"
               >
                 Подписаться
               </button>

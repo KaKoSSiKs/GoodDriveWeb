@@ -273,6 +273,14 @@ export const ordersApi = {
   }
 };
 
+// API для операций с остатками склада
+export const stockApi = {
+  // Пересчёт резерва и доступного остатка на основании заказов
+  async recalculateFromOrders() {
+    return api.post('/api/stock/recalculate');
+  }
+};
+
 // Утилиты для работы с корзиной
 export const cartUtils = {
   getCart() {

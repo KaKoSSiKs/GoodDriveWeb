@@ -350,7 +350,7 @@
 />
 
 <!-- Hero секция -->
-<section class="relative bg-gradient-to-br from-gray-50 via-white to-gray-100 overflow-hidden" style="min-height: 60vh;">
+<section class="relative bg-gradient-to-br from-gray-50 via-white to-gray-100 overflow-hidden" style="min-height: 55vh; max-height: 85vh;">
   <!-- Декоративные элементы -->
   {#if !heroImageFailed}
     <img
@@ -366,19 +366,19 @@
     />
   {/if}
   
-  <div class="relative container-custom py-16 lg:py-24">
+  <div class="relative container-custom py-10 md:py-14 lg:py-16">
     <div class="max-w-4xl mx-auto text-center">
-      <h1 class="text-4xl md:text-6xl font-bold mb-6 leading-tight text-gray-900">
+      <h1 class="text-2xl sm:text-3xl md:text-5xl font-bold mb-4 md:mb-6 leading-tight text-gray-900">
         Автозапчасти
         <br>
         <span class="text-primary-700">для вашего автомобиля</span>
       </h1>
-      <p class="text-lg md:text-xl mb-10 text-gray-800 max-w-2xl mx-auto leading-relaxed">
+      <p class="text-sm sm:text-base md:text-lg mb-6 md:mb-8 text-gray-800 max-w-2xl mx-auto leading-relaxed">
         Широкий выбор оригинальных и совместимых запчастей от ведущих производителей. 
         Быстрая доставка по всей России. Консультации специалистов.
       </p>
-      <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
-        <a href="/catalog" class="btn-primary text-lg px-8 py-3">
+      <div class="flex flex-col sm:flex-row gap-3 justify-center items-center">
+        <a href="/catalog" class="btn-primary text-base sm:text-lg px-6 py-2.5">
           <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
@@ -393,7 +393,7 @@
 <section class="section-padding bg-white">
   <div class="container-custom">
     <h2 class="text-3xl font-semibold text-gray-900 mb-10 text-center">Категории запчастей</h2>
-    <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
       <a href="/catalog?category=electronics" class="card group hover:border-primary-300 hover:shadow-lg transition-all duration-200">
         <div class="p-6 text-center">
           <div class="w-16 h-16 bg-gray-50 rounded-xl flex items-center justify-center mx-auto mb-4 group-hover:bg-primary-50 transition-colors">
@@ -440,12 +440,12 @@
 <!-- Популярные товары -->
 <section class="section-padding bg-gray-50">
   <div class="container-custom">
-    <div class="flex items-center justify-between mb-10">
+    <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-6 sm:mb-8">
       <div>
-        <h2 class="text-3xl font-semibold text-gray-900 mb-2">Популярные товары</h2>
-        <p class="text-gray-800">Выбирают большинство покупателей</p>
+        <h2 class="text-2xl md:text-3xl font-semibold text-gray-900 mb-1">Популярные товары</h2>
+        <p class="text-sm md:text-base text-gray-800">Выбирают большинство покупателей</p>
       </div>
-      <a href="/catalog" class="btn-outline">
+      <a href="/catalog" class="btn-outline text-sm md:text-base">
         Смотреть все
         <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
@@ -454,7 +454,7 @@
     </div>
     
     {#if loading}
-      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-4 gap-2 md:gap-3 items-stretch">
+      <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-3 items-stretch">
         {#each Array(8) as _}
           <div class="card p-3 animate-pulse">
             <div class="aspect-square bg-gray-200 rounded-lg mb-2"></div>
@@ -464,7 +464,7 @@
         {/each}
       </div>
     {:else if featuredParts.length > 0}
-      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-4 gap-2 md:gap-3 items-stretch">
+      <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-3 items-stretch">
         {#each featuredParts as part}
           <PartCard {part} isPopular={part.isPopular || false} on:addToCart={handleAddToCart} />
         {/each}
@@ -737,8 +737,8 @@
       </div>
 
       <!-- Яндекс карта -->
-      <div class="card overflow-hidden h-[600px]">
-        <div style="position:relative;overflow:hidden;height:100%;">
+      <div class="card overflow-hidden">
+        <div class="relative w-full h-56 sm:h-64 md:h-[400px]">
           <iframe 
             src="https://yandex.ru/map-widget/v1/?ll=61.424401%2C55.187617&z=17&l=map&pt=61.424401,55.187617,pm2rdm" 
             width="100%" 

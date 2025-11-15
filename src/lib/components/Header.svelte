@@ -50,18 +50,18 @@
 
 <header class="bg-white shadow-sm border-b border-neutral-200 sticky top-0 z-50">
   <div class="container-custom">
-    <div class="flex items-center justify-between h-16">
+    <div class="flex items-center justify-between h-14 sm:h-16">
       <!-- Логотип -->
-      <div class="flex items-center">
-        <a href="/" class="flex items-center space-x-3 group" aria-label="GoodDrive">
+      <div class="flex items-center min-w-0">
+        <a href="/" class="flex items-center space-x-2 group" aria-label="GoodDrive">
           {#if !logoLoadFailed}
-            <img src="/images/logo.jpg" alt="GoodDrive" class="h-12 w-auto group-hover:scale-105 transition-transform" onerror={() => logoLoadFailed = true} />
+            <img src="/images/logo.jpg" alt="GoodDrive" class="h-9 sm:h-10 w-auto group-hover:scale-105 transition-transform" onerror={() => logoLoadFailed = true} />
           {:else}
-            <div class="w-12 h-12 bg-primary-700 rounded-lg flex items-center justify-center">
-              <span class="text-white font-bold text-xl">G</span>
+            <div class="w-9 h-9 sm:w-10 sm:h-10 bg-primary-700 rounded-lg flex items-center justify-center">
+              <span class="text-white font-bold text-lg sm:text-xl">G</span>
             </div>
           {/if}
-          <span class="text-2xl font-bold text-primary-700">GoodDrive</span>
+          <span class="hidden sm:inline text-lg md:text-xl font-bold text-primary-700 truncate">GoodDrive</span>
         </a>
       </div>
       
@@ -75,7 +75,7 @@
       </div>
       
       <!-- Навигация и корзина -->
-      <div class="flex items-center space-x-4">
+      <div class="flex items-center space-x-3">
         <!-- Навигационные ссылки (скрыты на мобильных) -->
         <nav class="hidden md:flex items-center space-x-6" aria-label="Основная навигация">
           <a href="/catalog" class="text-neutral-700 hover:text-primary-700 transition-colors font-medium">

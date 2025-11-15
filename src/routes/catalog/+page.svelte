@@ -330,13 +330,18 @@
       randomInStock.sort(() => Math.random() - 0.5);
       randomOutOfStock.sort((a, b) => (Number(b.available) || 0) - (Number(a.available) || 0));
       
-      // Объединяем все группы
-      let sortedParts = [
+      // Объединяем все группы так, чтобы товары с наличием были сверху,
+      // а товары "под заказ" (available <= 0) всегда внизу
+      const inStockParts = [
         ...popularInStock,
+        ...randomInStock
+      ];
+      const outOfStockParts = [
         ...popularOutOfStock,
-        ...randomInStock,
         ...randomOutOfStock
-      ].map(part => ({
+      ];
+
+      let sortedParts = [...inStockParts, ...outOfStockParts].map(part => ({
         ...part,
         isPopular: top100PartIds.has(part.id),
         available: Number(part.available) || 0
@@ -377,22 +382,38 @@
                 matchScore: calculateMatchScore(part, tokens)
               }))
               .sort((a, b) => {
+                const inStockA = a.available > 0;
+                const inStockB = b.available > 0;
+
+                // Сначала все товары в наличии, затем без наличия
+                if (inStockA !== inStockB) {
+                  return inStockB - inStockA;
+                }
+
+                // Затем сортируем по релевантности
                 if (b.matchScore !== a.matchScore) {
                   return b.matchScore - a.matchScore;
                 }
+
+                // И в конце по количеству в наличии (по убыванию)
                 return b.available - a.available;
               });
           }
         }
 
         if (!sortedParts || sortedParts.length === 0) {
-          // Если даже fallback ничего не дал, показываем все товары
-          sortedParts = [
+          // Если даже fallback ничего не дал, показываем все товары,
+          // но снова следим за тем, чтобы "нет в наличии" были внизу
+          const allInStock = [
             ...popularInStock,
+            ...randomInStock
+          ];
+          const allOutOfStock = [
             ...popularOutOfStock,
-            ...randomInStock,
             ...randomOutOfStock
-          ].map(part => ({
+          ];
+
+          sortedParts = [...allInStock, ...allOutOfStock].map(part => ({
             ...part,
             available: Number(part.available) || 0
           }));
@@ -656,7 +677,7 @@
     <main class="flex-1">
       {#if isLoading}
         <!-- Скелетон загрузки -->
-        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-4 gap-2 md:gap-3 items-stretch">
+        <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-3 items-stretch">
           {#each Array(12) as _}
             <div class="card p-3 animate-pulse">
               <div class="bg-neutral-200 h-32 rounded-lg mb-2"></div>
@@ -668,7 +689,7 @@
         </div>
       {:else if hasParts}
         <!-- Сетка товаров -->
-        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-4 gap-2 md:gap-3 mb-8 items-stretch">
+        <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-3 mb-8 items-stretch">
           {#each parts as part}
             <PartCard {part} isPopular={part.isPopular || false} on:addToCart={handleAddToCart} />
           {/each}

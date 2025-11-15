@@ -171,7 +171,7 @@
 	</div>
 {/if}
 
-<div class="container-custom py-8">
+<div class="container-custom py-4 md:py-6">
 {#if loading}
 	<!-- Загрузка -->
 	<div class="flex items-center justify-center py-20">
@@ -199,7 +199,7 @@
 	</div>
 {:else}
 	<!-- Хлебные крошки -->
-	<nav class="flex items-center space-x-2 text-sm text-gray-600 mb-8">
+	<nav class="flex items-center space-x-2 text-xs sm:text-sm text-gray-600 mb-4 md:mb-6">
 		<a href="/" class="hover:text-primary-600 transition-colors">Главная</a>
 		<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
@@ -212,11 +212,15 @@
 	</nav>
 
 	<!-- Основной контент -->
-	<div class="grid lg:grid-cols-2 gap-10 mb-16">
+	<div class="grid gap-4 md:gap-6 lg:gap-8 mb-8 items-start lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)_minmax(0,2fr)]">
 		<!-- Левая колонка: Галерея изображений -->
-		<div class="space-y-4">
+		<div class="space-y-4 order-1 lg:order-1">
 			<!-- Основное изображение -->
-			<div class="aspect-square bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl overflow-hidden shadow-lg border border-gray-200" role="img" aria-label="Изображение товара {part.title}">
+			<div
+				class="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl overflow-hidden shadow-md border border-gray-200 h-[220px] md:h-[260px] lg:h-[300px] flex items-center justify-center"
+				role="img"
+				aria-label="Изображение товара {part.title}"
+			>
 				{#if hasImages && currentImage}
 					{@const imageSrc = currentImage.image_url || currentImage.imageUrl || currentImage.url || ''}
 					{#if imageSrc}
@@ -302,39 +306,39 @@
 			{/if}
 		</div>
 
-		<!-- Правая колонка: Информация -->
-		<div class="space-y-6">
+		<!-- Центральная колонка: Информация о товаре -->
+		<div class="space-y-4 order-2 lg:order-2">
 			<!-- Заголовок и бейдж -->
 			<div>
-				<div class="flex items-center gap-3 mb-3">
-					<span class="px-3 py-1.5 rounded-lg text-sm font-semibold bg-primary-50 text-primary-700 border border-primary-100">
+				<div class="flex items-center gap-1.5 mb-1.5">
+					<span class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-primary-50 text-primary-700 border border-primary-100">
 						{brandName}
 					</span>
 					{#if brandCountry}
-						<span class="text-sm text-gray-500">🌍 {brandCountry}</span>
+						<span class="text-xs text-gray-500">🌍 {brandCountry}</span>
 					{/if}
 				</div>
 				
-				<h1 class="text-3xl lg:text-4xl font-bold text-gray-900 leading-tight">
+				<h1 class="text-lg md:text-xl lg:text-2xl font-bold text-gray-900 leading-snug">
 					{part.title}
 				</h1>
 			</div>
 
 			<!-- Артикулы -->
 			{#if part.original_number || part.manufacturer_number}
-				<div class="card p-4 bg-gray-50 space-y-2">
+				<div class="card p-2.5 md:p-3 bg-gray-50 space-y-1">
 					{#if part.original_number}
-						<div class="flex items-center justify-between text-sm">
+						<div class="flex items-center justify-between text-xs md:text-sm">
 							<span class="text-gray-600 font-medium">Оригинальный номер:</span>
-							<code class="font-mono bg-white px-3 py-1.5 rounded-lg border border-gray-200 text-gray-900">
+							<code class="font-mono bg-white px-2.5 py-1 rounded-lg border border-gray-200 text-gray-900 text-xs md:text-sm">
 								{part.original_number}
 							</code>
 						</div>
 					{/if}
 					{#if part.manufacturer_number}
-						<div class="flex items-center justify-between text-sm">
+						<div class="flex items-center justify-between text-xs md:text-sm">
 							<span class="text-gray-600 font-medium">Номер производителя:</span>
-							<code class="font-mono bg-white px-3 py-1.5 rounded-lg border border-gray-200 text-gray-900">
+							<code class="font-mono bg-white px-2.5 py-1 rounded-lg border border-gray-200 text-gray-900 text-xs md:text-sm">
 								{part.manufacturer_number}
 							</code>
 						</div>
@@ -343,24 +347,24 @@
 			{/if}
 
 			<!-- Наличие и склад -->
-			<div class="flex items-center gap-4 flex-wrap">
+			<div class="flex items-center gap-2.5 flex-wrap">
 				{#if isInStock}
-					<div class="flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 rounded-xl">
+					<div class="flex items-center gap-1.5 px-2.5 py-1 bg-green-50 border border-green-200 rounded-xl text-[11px] md:text-xs">
 						<div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-						<span class="text-sm font-semibold text-green-700">В наличии: {part.available} шт</span>
+						<span class="font-semibold text-green-700">В наличии: {part.available} шт</span>
 					</div>
 				{:else}
-					<div class="flex items-center gap-2 px-4 py-2 bg-orange-50 border border-orange-200 rounded-xl">
-						<svg class="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<div class="flex items-center gap-1.5 px-2.5 py-1 bg-orange-50 border border-orange-200 rounded-xl text-[11px] md:text-xs">
+						<svg class="w-3.5 h-3.5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
 						</svg>
-						<span class="text-sm font-semibold text-orange-700">Под заказ</span>
+						<span class="font-semibold text-orange-700">Под заказ</span>
 					</div>
 				{/if}
 
 				{#if warehouseName}
-					<div class="flex items-center gap-2 text-sm text-gray-600">
-						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<div class="flex items-center gap-1.5 text-[11px] md:text-xs text-gray-600">
+						<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
 						</svg>
 						{warehouseName}
@@ -370,44 +374,54 @@
 
 			<!-- Описание (если есть) -->
 			{#if part.description}
-				<div class="card p-6 bg-blue-50 border-blue-100">
-					<h3 class="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
-						<svg class="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				<div class="card p-3 bg-blue-50 border-blue-100">
+					<h3 class="text-sm md:text-base font-semibold text-gray-900 mb-1.5 flex items-center gap-2">
+						<svg class="w-4 h-4 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
 						</svg>
 						Описание
 					</h3>
-					<p class="text-gray-700 leading-relaxed">{part.description}</p>
+					<p class="text-[11px] md:text-xs text-gray-700 leading-snug">{part.description}</p>
 				</div>
 			{/if}
+		</div>
 
-			<!-- Блок покупки -->
-			<div class="card p-6 bg-gradient-to-br from-white to-gray-50 border-2 border-primary-100 sticky top-20">
+		<!-- Правая колонка: Оплата / корзина -->
+		<div class="space-y-4 order-3 lg:order-3 max-w-xs w-full lg:ml-auto">
+			<!-- Блок покупки (компактный, в стиле маркетплейсов) -->
+			<div class="card p-3 md:p-4 bg-white border border-gray-200 md:sticky md:top-16">
 				<!-- Цена -->
-				<div class="mb-6">
-					<div class="flex items-baseline gap-3 mb-2">
-						<span class="text-5xl font-bold text-gradient">
-							{formatUtils.formatPrice(price)}
-						</span>
-					</div>
-					<p class="text-sm text-gray-500">Цена указана за 1 шт.</p>
+				<div class="mb-3">
+					<span class="block text-xl md:text-2xl font-bold text-gray-900">
+						{formatUtils.formatPrice(price)}
+					</span>
+					<p class="mt-1 text-[11px] md:text-xs text-gray-500">Цена указана за 1 шт.</p>
 				</div>
 
-				<!-- Количество -->
-				<div class="mb-6">
-					<label for="quantity-input" class="block text-sm font-semibold text-gray-700 mb-3">Количество</label>
-					<div class="flex items-center gap-3">
+				<!-- Количество + итого -->
+				<div class="mb-3">
+					<div class="flex items-center justify-between mb-1">
+						<span class="text-xs md:text-sm font-semibold text-gray-700">Количество</span>
+						<span class="text-[11px] md:text-xs text-gray-600">
+							Итого:
+							<span class="font-semibold text-gray-900">
+								{formatUtils.formatPrice(totalPrice)}
+							</span>
+						</span>
+					</div>
+
+					<div class="flex items-center gap-2">
 						<button
 							onclick={() => updateQuantity(-1)}
 							aria-label="Уменьшить количество"
 							disabled={quantity <= 1}
-							class="w-12 h-12 flex items-center justify-center rounded-xl border-2 border-gray-200 hover:border-primary-500 hover:bg-primary-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+							class="w-7 h-7 flex items-center justify-center rounded-lg border border-gray-300 hover:border-primary-500 hover:bg-primary-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
 						>
-							<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"/>
 							</svg>
 						</button>
-						
+
 						<input
 							id="quantity-input"
 							type="number"
@@ -419,84 +433,70 @@
 								const max = maxQuantity();
 								quantity = Math.min(Math.max(1, val), max);
 							}}
-							class="flex-1 text-center text-2xl font-bold text-gray-900 border-2 border-gray-200 rounded-xl py-2 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition-all"
+							class="flex-1 h-8 text-center text-sm md:text-base font-semibold text-gray-900 border border-gray-300 rounded-lg px-2 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition-all"
 						/>
-						
+
 						<button
 							onclick={() => updateQuantity(1)}
 							aria-label="Увеличить количество"
 							disabled={quantity >= maxQuantity()}
-							class="w-12 h-12 flex items-center justify-center rounded-xl border-2 border-gray-200 hover:border-primary-500 hover:bg-primary-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+							class="w-7 h-7 flex items-center justify-center rounded-lg border border-gray-300 hover:border-primary-500 hover:bg-primary-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
 						>
-							<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
 							</svg>
 						</button>
 					</div>
+
 					{#if maxQuantity() > 0 && maxQuantity() < 99}
-						<p class="text-xs text-gray-500 mt-2">Максимум: {maxQuantity()} шт.</p>
+						<p class="text-[11px] text-gray-500 mt-1.5">Максимум: {maxQuantity()} шт.</p>
 					{/if}
 					{#if cartQuantity > 0}
-						<p class="text-xs text-orange-600 mt-2">В корзине: {cartQuantity} шт.</p>
+						<p class="text-[11px] text-orange-600 mt-1.5">В корзине: {cartQuantity} шт.</p>
 					{/if}
 					{#if maxQuantity() === 0 && part?.available > 0}
-						<p class="text-xs text-red-600 mt-2">Весь товар уже в корзине</p>
+						<p class="text-[11px] text-red-600 mt-1.5">Весь товар уже в корзине</p>
 					{/if}
-				</div>
-
-				<!-- Итоговая стоимость -->
-				<div class="bg-gray-100 rounded-xl p-4 mb-6">
-					<div class="flex items-center justify-between">
-						<span class="text-gray-700 font-medium">Итого:</span>
-						<span class="text-3xl font-bold text-gray-900">
-							{formatUtils.formatPrice(totalPrice)}
-						</span>
-					</div>
 				</div>
 
 				<!-- Кнопка В корзину -->
 				<button
 					onclick={handleAddToCart}
 					disabled={!isInStock || isAddingToCart || maxQuantity() <= 0}
-					class="w-full py-4 rounded-xl font-bold text-lg transition-all duration-300 flex items-center justify-center gap-3
+					class="w-full py-2 rounded-xl font-bold text-sm md:text-base transition-all duration-300 flex items-center justify-center gap-2
 						   {isInStock && maxQuantity() > 0
-						     ? 'bg-gradient-to-r from-primary-500 to-primary-600 text-white hover:from-primary-600 hover:to-primary-700 hover:shadow-2xl hover:scale-105 active:scale-95' 
+						     ? 'bg-primary-600 text-white hover:bg-primary-700 hover:shadow-md' 
 						     : 'bg-gray-200 text-gray-500 cursor-not-allowed'}"
 				>
 					{#if isAddingToCart}
-						<svg class="animate-spin h-6 w-6" fill="none" viewBox="0 0 24 24">
+						<svg class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
 							<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
 							<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
 						</svg>
 						Добавление...
 					{:else if isInStock && maxQuantity() > 0}
-						<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
 						</svg>
 						Добавить в корзину
 					{:else if maxQuantity() === 0 && part?.available > 0}
-						<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
 						</svg>
 						Весь товар в корзине
 					{:else}
-						<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
 						</svg>
 						Нет в наличии
 					{/if}
 				</button>
 
-				<!-- Дополнительные кнопки -->
-				<div class="grid grid-cols-2 gap-3 mt-4">
-					<a href="/catalog" class="btn-outline text-center">
+				<!-- Кнопка "К каталогу" (вторичная) -->
+				<div class="mt-3">
+					<a href="/catalog" class="w-full inline-flex items-center justify-center rounded-xl border border-gray-300 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
 						← К каталогу
 					</a>
-					<button class="btn-ghost" aria-label="Добавить в избранное">
-						<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
-						</svg>
-					</button>
 				</div>
 			</div>
 		</div>

@@ -76,12 +76,12 @@
   });
 </script>
 
-<div class="container-custom py-8">
+<div class="container-custom py-6 md:py-8">
   <div class="max-w-4xl mx-auto">
     <!-- Заголовок -->
-    <div class="mb-8">
-      <h1 class="text-3xl font-bold text-neutral-900 mb-2">Корзина</h1>
-      <p class="text-neutral-600">
+    <div class="mb-6 md:mb-8">
+      <h1 class="text-2xl md:text-3xl font-bold text-neutral-900 mb-1.5">Корзина</h1>
+      <p class="text-sm md:text-base text-neutral-600">
         {#if isEmpty}
           Ваша корзина пуста
         {:else}
@@ -92,7 +92,7 @@
     
     {#if isEmpty}
       <!-- Пустая корзина -->
-      <div class="text-center py-16">
+      <div class="text-center py-10 md:py-14">
         <svg class="w-24 h-24 text-neutral-400 mx-auto mb-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
         </svg>
@@ -104,12 +104,12 @@
       </div>
     {:else}
       <!-- Содержимое корзины -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
         <!-- Список товаров -->
         <div class="lg:col-span-2">
-          <div class="card p-6">
-            <div class="flex items-center justify-between mb-6">
-              <h2 class="text-xl font-semibold text-neutral-900">Товары в корзине</h2>
+          <div class="card p-4 md:p-6">
+            <div class="flex items-center justify-between mb-4 md:mb-6">
+              <h2 class="text-lg md:text-xl font-semibold text-neutral-900">Товары в корзине</h2>
               <button
                 onclick={clearCart}
                 class="text-sm text-red-600 hover:text-red-800 font-medium"
@@ -118,9 +118,9 @@
               </button>
             </div>
             
-            <div class="space-y-4">
+            <div class="space-y-3 md:space-y-4">
               {#each cart as item}
-                <div class="flex items-center space-x-4 p-4 border border-neutral-200 rounded-lg">
+                <div class="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-3 md:p-4 border border-neutral-200 rounded-lg">
                   <!-- Изображение товара -->
                   <div class="w-20 h-20 bg-neutral-100 rounded-lg flex items-center justify-center flex-shrink-0">
                     {#if item.image}
@@ -138,9 +138,9 @@
                   
                   <!-- Информация о товаре -->
                   <div class="flex-1 min-w-0">
-                    <h3 class="font-semibold text-neutral-900 truncate">{item.title}</h3>
-                    <p class="text-sm text-neutral-600">{item.brand}</p>
-                    <p class="text-lg font-bold text-primary-500">
+                    <h3 class="font-semibold text-neutral-900 text-sm sm:text-base truncate">{item.title}</h3>
+                    <p class="text-xs sm:text-sm text-neutral-600">{item.brand}</p>
+                    <p class="text-base md:text-lg font-bold text-primary-500 mt-1">
                       {formatUtils.formatPrice(item.price)}
                     </p>
                   </div>
@@ -159,7 +159,7 @@
                         </svg>
                       </button>
                       
-                      <span class="w-12 text-center font-medium">{item.quantity}</span>
+                      <span class="w-10 text-center text-sm font-medium">{item.quantity}</span>
                       
                       <button
                         onclick={() => updateQuantity(item.id, 1)}
@@ -173,13 +173,13 @@
                       </button>
                     </div>
                     {#if item.available !== undefined && item.available > 0}
-                      <span class="text-xs text-neutral-500">Доступно: {item.available} шт.</span>
+                      <span class="text-[11px] text-neutral-500">Доступно: {item.available} шт.</span>
                     {/if}
                   </div>
                   
                   <!-- Общая цена -->
                   <div class="text-right">
-                    <p class="text-lg font-bold text-neutral-900">
+                    <p class="text-base md:text-lg font-bold text-neutral-900">
                       {formatUtils.formatPrice(item.price * item.quantity)}
                     </p>
                   </div>

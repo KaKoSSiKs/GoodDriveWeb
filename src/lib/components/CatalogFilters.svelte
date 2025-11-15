@@ -126,10 +126,10 @@
   });
 </script>
 
-<div class="bg-white rounded-2xl shadow-lg border border-secondary-100 p-6">
+<div class="bg-white rounded-2xl shadow-lg border border-secondary-100 p-4 md:p-6">
   <!-- Заголовок фильтров -->
-  <div class="flex items-center justify-between mb-6">
-    <h2 class="text-xl font-bold text-secondary-900">Фильтры</h2>
+  <div class="flex items-center justify-between mb-4 md:mb-6">
+    <h2 class="text-lg md:text-xl font-bold text-secondary-900">Фильтры</h2>
     <div class="flex items-center space-x-3">
       {#if hasActiveFilters}
         <button 
@@ -152,10 +152,10 @@
   </div>
   
   <!-- Фильтры -->
-  <div class="space-y-6 {isExpanded ? '' : 'hidden md:block'}">
+  <div class="space-y-4 md:space-y-6 {isExpanded ? '' : 'hidden md:block'}">
     <!-- Поиск -->
     <div>
-      <label for="search-input" class="block text-sm font-medium text-secondary-700 mb-3">Поиск</label>
+      <label for="search-input" class="block text-sm font-medium text-secondary-700 mb-2">Поиск</label>
       <form onsubmit={handleSearchSubmit}>
         <div class="relative">
           <input
