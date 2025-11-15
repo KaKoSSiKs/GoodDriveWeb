@@ -20,6 +20,25 @@
   let totalPages = $state(1);
   let totalCount = $state(0);
   let top100PartIds = $state(new Set()); // ID топ 100 товаров для "Хит продаж"
+  let referencesLoaded = $state(false);
+  function normalizeString(value) {
+    return value?.toString().trim().toLowerCase().replace(/[\s\-_/]+/g, '');
+  }
+  
+  function getBrandIdsByName(name) {
+    const normalized = normalizeString(name);
+    if (!normalized) return [];
+    
+    return (brands || [])
+      .filter((brand) => {
+        const brandName = normalizeString(brand.name);
+        return brandName === normalized ||
+          brandName?.includes(normalized) ||
+          normalized.includes(brandName);
+      })
+      .map((brand) => brand.id?.toString())
+      .filter(Boolean);
+  }
   
   // Получаем текущий URL из store (только на верхнем уровне)
   const currentUrl = $derived($page.url);
@@ -33,7 +52,18 @@
     price_min: $page.url.searchParams.get('price_min') || '',
     price_max: $page.url.searchParams.get('price_max') || '',
     in_stock: $page.url.searchParams.get('in_stock') === 'true',
-    ordering: $page.url.searchParams.get('ordering') || '-created_at'
+    ordering: $page.url.searchParams.get('ordering') || '-created_at',
+    vehicle_brand: $page.url.searchParams.get('vehicleBrand') || '',
+    vehicle_model: $page.url.searchParams.get('vehicleModel') || '',
+    vehicle_modification: $page.url.searchParams.get('vehicleModification') || '',
+    vehicle_year: $page.url.searchParams.get('vehicleYear') || ''
+  };
+  
+  const vehicleParamMap = {
+    vehicle_brand: 'vehicleBrand',
+    vehicle_model: 'vehicleModel',
+    vehicle_modification: 'vehicleModification',
+    vehicle_year: 'vehicleYear'
   };
   
   let filters = $state(initialFilters);
@@ -42,7 +72,9 @@
   const hasParts = $derived(parts.length > 0);
   const hasFilters = $derived(
     filters.search || filters.brand || filters.warehouse ||
-    filters.price_min || filters.price_max || filters.in_stock
+    filters.price_min || filters.price_max || filters.in_stock ||
+    filters.vehicle_brand || filters.vehicle_model ||
+    filters.vehicle_modification || filters.vehicle_year
   );
   
   // SEO данные
@@ -72,7 +104,49 @@
   ]);
   
   // Загрузка данных товаров
+  function getVehicleTokens() {
+    const tokens = [];
+    const addTokens = (value) => {
+      if (!value) return;
+      value
+        .split(/[\s,]+/)
+        .map((token) => token.trim())
+        .filter(Boolean)
+        .forEach((token) => tokens.push(token.toLowerCase()));
+    };
+    
+    addTokens(filters.vehicle_model);
+    addTokens(filters.vehicle_modification);
+    addTokens(filters.vehicle_year);
+    addTokens(filters.search);
+    return Array.from(new Set(tokens));
+  }
+  
+  function calculateMatchScore(part, tokens) {
+    if (!tokens.length) return 0;
+    const title = part.title?.toLowerCase() || '';
+    let score = 0;
+    
+    tokens.forEach((token) => {
+      if (!token) return;
+      if (title.includes(token)) {
+        score += token.length >= 4 ? 3 : 2;
+      } else {
+        // проверяем совпадение по словам
+        const regex = new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+        if (regex.test(title)) {
+          score += 1;
+        }
+      }
+    });
+    
+    return score;
+  }
+  
   async function loadParts() {
+    if (!referencesLoaded) {
+      await loadReferences();
+    }
     if (currentPage === 1) {
       isLoading = true;
     } else {
@@ -84,14 +158,29 @@
       const params = {};
       
       // Добавляем фильтры, если они есть
-      if (filters.search && filters.search.trim()) {
-        params.search = filters.search.trim();
+      let searchTerm = filters.search && filters.search.trim() ? filters.search.trim() : '';
+      if (!searchTerm) {
+        const vehicleSearchTerms = [
+          filters.vehicle_model,
+          filters.vehicle_modification
+        ].filter(Boolean);
+        if (vehicleSearchTerms.length > 0) {
+          searchTerm = vehicleSearchTerms.join(' ');
+        }
+      }
+      if (searchTerm) {
+        params.search = searchTerm;
       }
       if (filters.category && filters.category.trim()) {
         params.category = filters.category.trim();
       }
       if (filters.brand) {
         params.brand = filters.brand;
+      } else if (filters.vehicle_brand) {
+        const brandIds = getBrandIdsByName(filters.vehicle_brand);
+        if (brandIds.length > 0) {
+          params.brand = brandIds.join(',');
+        }
       }
       if (filters.warehouse) {
         params.warehouse = filters.warehouse;
@@ -133,12 +222,16 @@
       delete cleanParams.page; // Также удаляем page, так как мы всегда используем page: 1
       
       console.log('Загрузка товаров с параметрами:', cleanParams);
-      const data = await partsApi.getParts({
-        page: 1,
-        page_size: 100, // Используем максимальное допустимое значение
-        ...cleanParams
-      });
-      
+      const loadData = async (extraParams = {}) => {
+        return partsApi.getParts({
+          page: 1,
+          page_size: 100, // Используем максимальное допустимое значение
+          ...cleanParams,
+          ...extraParams
+        });
+      };
+
+      const data = await loadData();
       console.log('Получены данные от API:', { 
         hasData: !!data, 
         dataType: typeof data,
@@ -238,7 +331,7 @@
       randomOutOfStock.sort((a, b) => (Number(b.available) || 0) - (Number(a.available) || 0));
       
       // Объединяем все группы
-      const sortedParts = [
+      let sortedParts = [
         ...popularInStock,
         ...popularOutOfStock,
         ...randomInStock,
@@ -248,6 +341,63 @@
         isPopular: top100PartIds.has(part.id),
         available: Number(part.available) || 0
       }));
+      
+      // Fallback: если нет товаров, пробуем подгрузить по бренду и ранжировать по совпадению
+      if (sortedParts.length === 0) {
+        const tokens = getVehicleTokens();
+        let fallbackParts = [];
+        
+        if (tokens.length > 0 || filters.vehicle_brand) {
+          let fallbackBrandParam = cleanParams.brand;
+          if (!fallbackBrandParam && filters.vehicle_brand) {
+            const brandIds = getBrandIdsByName(filters.vehicle_brand);
+            if (brandIds.length > 0) {
+              fallbackBrandParam = brandIds.join(',');
+            }
+          }
+          
+          const fallbackData = await loadData({
+            brand: fallbackBrandParam || cleanParams.brand || undefined,
+            search: undefined
+          });
+          
+          if (fallbackData) {
+            if (Array.isArray(fallbackData.results)) {
+              fallbackParts = fallbackData.results;
+            } else if (Array.isArray(fallbackData.data)) {
+              fallbackParts = fallbackData.data;
+            }
+          }
+          
+          if (fallbackParts.length > 0) {
+            sortedParts = fallbackParts
+              .map(part => ({
+                ...part,
+                available: Number(part.available) || 0,
+                matchScore: calculateMatchScore(part, tokens)
+              }))
+              .sort((a, b) => {
+                if (b.matchScore !== a.matchScore) {
+                  return b.matchScore - a.matchScore;
+                }
+                return b.available - a.available;
+              });
+          }
+        }
+
+        if (!sortedParts || sortedParts.length === 0) {
+          // Если даже fallback ничего не дал, показываем все товары
+          sortedParts = [
+            ...popularInStock,
+            ...popularOutOfStock,
+            ...randomInStock,
+            ...randomOutOfStock
+          ].map(part => ({
+            ...part,
+            available: Number(part.available) || 0
+          }));
+        }
+      }
       
       // Пагинация на клиенте
       const startIndex = (currentPage - 1) * 12;
@@ -310,8 +460,15 @@
 
       brands = brandsData.results || brandsData;
       warehouses = warehousesData.results || warehousesData;
+      referencesLoaded = true;
     } catch (error) {
       console.error('Ошибка загрузки справочников:', error);
+    }
+  }
+
+  async function ensureReferencesLoaded() {
+    if (!referencesLoaded) {
+      await loadReferences();
     }
   }
   
@@ -336,15 +493,17 @@
     // Обновляем URL без перезагрузки страницы
     const url = new URL(currentUrl);
     Object.keys(newFilters).forEach(key => {
-      if (newFilters[key] && newFilters[key] !== false) {
+      const paramName = vehicleParamMap[key] || key;
+      const value = newFilters[key];
+      if (value && value !== false) {
         // Правильно кодируем search параметр (пробелы в +)
-        if (key === 'search' && typeof newFilters[key] === 'string') {
-          url.searchParams.set(key, newFilters[key].replace(/\s+/g, '+'));
+        if (key === 'search' && typeof value === 'string') {
+          url.searchParams.set(paramName, value.replace(/\s+/g, '+'));
         } else {
-          url.searchParams.set(key, newFilters[key]);
+          url.searchParams.set(paramName, value);
         }
       } else {
-        url.searchParams.delete(key);
+        url.searchParams.delete(paramName);
       }
     });
     
@@ -362,7 +521,11 @@
       price_min: '',
       price_max: '',
       in_stock: false,
-      ordering: '-created_at'
+      ordering: '-created_at',
+      vehicle_brand: '',
+      vehicle_model: '',
+      vehicle_modification: '',
+      vehicle_year: ''
     };
     currentPage = 1;
     
@@ -423,29 +586,32 @@
       price_min: urlPriceMin,
       price_max: urlPriceMax,
       in_stock: urlInStock,
-      ordering: urlOrdering
+      ordering: urlOrdering,
+      vehicle_brand: $page.url.searchParams.get('vehicleBrand') || '',
+      vehicle_model: $page.url.searchParams.get('vehicleModel') || '',
+      vehicle_modification: $page.url.searchParams.get('vehicleModification') || '',
+      vehicle_year: $page.url.searchParams.get('vehicleYear') || ''
     };
     currentPage = urlPage;
   }
   
   // Обновление фильтров при изменении URL через afterNavigate
-  afterNavigate(() => {
+  afterNavigate(async () => {
     updateFiltersFromUrl();
     // Загружаем товары после обновления фильтров
-    loadTop100Products().then(() => {
-      loadParts();
-    });
+    await ensureReferencesLoaded();
+    await loadTop100Products();
+    await loadParts();
   });
   
   // Инициализация
-  onMount(() => {
+  onMount(async () => {
     // Обновляем фильтры из URL при первой загрузке
     updateFiltersFromUrl();
     
-    loadReferences();
-    loadTop100Products().then(() => {
-      loadParts();
-    });
+    await ensureReferencesLoaded();
+    await loadTop100Products();
+    await loadParts();
   });
 </script>
 
@@ -520,8 +686,44 @@
           <svg class="w-16 h-16 text-neutral-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
           </svg>
-          <h3 class="text-lg font-semibold text-neutral-900 mb-2">Товары не найдены</h3>
-          <p class="text-neutral-600 mb-4">Попробуйте изменить параметры поиска</p>
+          {#if filters.search && filters.search.trim().length > 0}
+            {#if filters.search.trim().length < 2}
+              <!-- Поисковый запрос слишком короткий -->
+              <h3 class="text-lg font-semibold text-neutral-900 mb-2">Поисковый запрос слишком короткий</h3>
+              <p class="text-neutral-600 mb-4">
+                Введите минимум 2 символа для поиска
+              </p>
+              <p class="text-sm text-neutral-500 mb-4">
+                Попробуйте ввести название товара, артикул или номер детали
+              </p>
+            {:else}
+              <!-- Товары не найдены по запросу -->
+              <h3 class="text-lg font-semibold text-neutral-900 mb-2">
+                По запросу "{filters.search}" ничего не найдено
+              </h3>
+              <p class="text-neutral-600 mb-2">
+                Попробуйте:
+              </p>
+              <ul class="text-left max-w-md mx-auto text-neutral-600 mb-4 space-y-1">
+                <li>• Проверить правильность написания</li>
+                <li>• Использовать другие ключевые слова</li>
+                <li>• Поискать по артикулу или номеру детали</li>
+                <li>• Изменить фильтры (бренд, склад, цена)</li>
+              </ul>
+            {/if}
+          {:else if filters.brand || filters.warehouse || filters.price_min || filters.price_max}
+            <!-- Товары не найдены с применёнными фильтрами -->
+            <h3 class="text-lg font-semibold text-neutral-900 mb-2">Товары не найдены</h3>
+            <p class="text-neutral-600 mb-4">
+              Попробуйте изменить параметры фильтров или сбросить их
+            </p>
+          {:else}
+            <!-- Общий случай - нет товаров -->
+            <h3 class="text-lg font-semibold text-neutral-900 mb-2">Товары не найдены</h3>
+            <p class="text-neutral-600 mb-4">
+              В каталоге пока нет товаров, соответствующих вашим критериям
+            </p>
+          {/if}
           <button onclick={handleClearFilters} class="btn-primary">
             Сбросить фильтры
           </button>

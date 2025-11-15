@@ -141,6 +141,17 @@ export const POST: RequestHandler = async ({ request }) => {
 		}
 		if (!data.customerPhone || data.customerPhone.trim() === '') {
 			errors.push('Телефон обязателен');
+		} else {
+			const normalizedPhone = data.customerPhone.trim().replace(/[\s\-\(\)]/g, '');
+			const digitsOnly = normalizedPhone.replace(/\D/g, '');
+			
+			if (digitsOnly.length < 11 || digitsOnly.length > 12) {
+				errors.push('Телефон должен содержать от 11 до 12 цифр');
+			} else if (!/^\+?\d+$/.test(normalizedPhone)) {
+				errors.push('Введите корректный номер телефона');
+			} else {
+				data.customerPhone = normalizedPhone;
+			}
 		}
 		if (!data.deliveryAddress || data.deliveryAddress.trim() === '') {
 			errors.push('Адрес доставки обязателен');

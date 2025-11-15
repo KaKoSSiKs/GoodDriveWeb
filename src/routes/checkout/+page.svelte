@@ -45,13 +45,20 @@
       isValid = false;
     }
     
-    // Телефон
+    // Телефон - валидация как в форме консультации (11-12 цифр)
     if (!form.customer_phone.trim()) {
       errors.customer_phone = 'Введите номер телефона';
       isValid = false;
-    } else if (!validationUtils.isValidPhone(form.customer_phone)) {
-      errors.customer_phone = 'Введите корректный номер телефона';
-      isValid = false;
+    } else {
+      const cleanedPhone = form.customer_phone.trim().replace(/[\s\-\(\)]/g, '');
+      const digitsOnly = cleanedPhone.replace(/\+/g, '');
+      if (digitsOnly.length < 11 || digitsOnly.length > 12) {
+        errors.customer_phone = 'Телефон должен содержать от 11 до 12 цифр';
+        isValid = false;
+      } else if (!validationUtils.isValidPhone(form.customer_phone)) {
+        errors.customer_phone = 'Введите корректный номер телефона';
+        isValid = false;
+      }
     }
     
     // Email (необязательный)

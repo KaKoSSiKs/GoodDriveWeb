@@ -17,6 +17,7 @@
   let isOpen = $state(false);
   let selectedIndex = $state(-1);
   let timeoutId = $state(null);
+  let searchMessage = $state('');
   
   // Производные значения
   let hasSuggestions = $derived(suggestions.length > 0 && isOpen);
@@ -60,6 +61,9 @@
   // Обработчики
   function handleInput(event) {
     searchQuery = event.target.value;
+    if (searchMessage) {
+      searchMessage = '';
+    }
     isOpen = true;
     selectedIndex = -1;
     debouncedSearch(searchQuery);
@@ -108,16 +112,26 @@
   
   function selectSuggestion(suggestion) {
     searchQuery = suggestion.title;
+    if (searchMessage) {
+      searchMessage = '';
+    }
     isOpen = false;
     selectedIndex = -1;
     onSelect(suggestion);
   }
   
   function performSearch() {
-    if (!hasQuery) return;
+    const trimmedQuery = searchQuery.trim();
+    if (!trimmedQuery) {
+      searchMessage = 'Введите номер или название детали';
+      isOpen = false;
+      selectedIndex = -1;
+      return;
+    }
     
     isOpen = false;
-    onSearch(searchQuery);
+    searchMessage = '';
+    onSearch(trimmedQuery);
   }
   
   function clearSearch() {
@@ -182,6 +196,9 @@
       </button>
     {/if}
   </div>
+  {#if searchMessage}
+    <p class="text-sm text-red-500 mt-2" aria-live="polite">{searchMessage}</p>
+  {/if}
   
   <!-- Выпадающий список предложений -->
   {#if hasSuggestions}

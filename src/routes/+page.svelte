@@ -2,10 +2,11 @@
   import { onMount } from 'svelte';
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
-  import { partsApi, brandsApi, cartUtils } from '$lib/utils/api.js';
+  import { partsApi, brandsApi, cartUtils, helpRequestsApi, validationUtils } from '$lib/utils/api.js';
   import PartCard from '$lib/components/PartCard.svelte';
   import SeoHead from '$lib/components/SeoHead.svelte';
   import { generateOrganizationJsonLd } from '$lib/utils/seo.js';
+  import { vehicleYears, vehicleBrands, getModelsByBrand, getModificationsByBrandAndModel } from '$lib/utils/vehicle-data';
 
   // SEO данные
   const seoData = $state({
@@ -30,9 +31,29 @@
   let consultationForm = $state({
     vin: '',
     name: '',
-    phone: ''
+    phone: '',
+    message: ''
   });
+  let consultationErrors = $state({});
+  let isConsultationSubmitting = $state(false);
+  let consultationSuccess = $state(false);
   let heroImageFailed = $state(false);
+  
+  // Состояние для подбора по автомобилю
+  let vehicleSelection = $state({
+    year: '',
+    brand: '',
+    model: '',
+    modification: ''
+  });
+  
+  // Вычисляемые значения для моделей и модификаций
+  let availableModels = $derived(vehicleSelection.brand ? getModelsByBrand(vehicleSelection.brand) : []);
+  let availableModifications = $derived(
+    vehicleSelection.brand && vehicleSelection.model 
+      ? getModificationsByBrandAndModel(vehicleSelection.brand, vehicleSelection.model)
+      : []
+  );
   
   function handleAddToCart(event) {
     const { part } = event.detail;
@@ -142,15 +163,176 @@
     }
   }
 
-  function handleConsultationSubmit(event) {
+  // Валидация телефона (11-12 цифр)
+  function validatePhone(phone) {
+    if (!phone || phone.trim() === '') {
+      return 'Телефон обязателен';
+    }
+    
+    // Нормализуем телефон: удаляем все кроме цифр и +
+    const cleanedPhone = phone.trim().replace(/[\s\-\(\)]/g, '');
+    const digitsOnly = cleanedPhone.replace(/\+/g, '');
+    
+    // Проверяем количество цифр (11-12)
+    if (digitsOnly.length < 11 || digitsOnly.length > 12) {
+      return 'Телефон должен содержать от 11 до 12 цифр';
+    }
+    
+    return null;
+  }
+
+  // Валидация VIN-номера (ровно 17 символов, только буквы и цифры)
+  function validateVin(vin) {
+    if (!vin || vin.trim() === '') {
+      return null; // VIN необязателен
+    }
+    
+    const normalizedVin = vin.trim().toUpperCase().replace(/\s/g, '').replace(/[^A-Z0-9]/g, '');
+    
+    // Проверяем длину (должно быть ровно 17 символов)
+    if (normalizedVin.length !== 17) {
+      return 'Проверьте VIN-номер ещё раз. VIN должен содержать ровно 17 символов.';
+    }
+    
+    // Проверяем, что все символы - это буквы латиницы и цифры
+    if (!/^[A-Z0-9]{17}$/.test(normalizedVin)) {
+      return 'Проверьте VIN-номер ещё раз. VIN должен содержать только буквы латиницы и цифры.';
+    }
+    
+    return null;
+  }
+
+  async function handleConsultationSubmit(event) {
     event.preventDefault();
-    // Пока просто показываем сообщение
-    alert('Спасибо! Наш специалист свяжется с вами в ближайшее время.');
-    consultationForm = { vin: '', name: '', phone: '' };
+    
+    // Сбрасываем ошибки и состояние успеха
+    consultationErrors = {};
+    consultationSuccess = false;
+    
+    // Валидация
+    let isValid = true;
+    
+    if (!consultationForm.name || consultationForm.name.trim() === '') {
+      consultationErrors.name = 'Имя обязательно';
+      isValid = false;
+    }
+    
+    const phoneError = validatePhone(consultationForm.phone);
+    if (phoneError) {
+      consultationErrors.phone = phoneError;
+      isValid = false;
+    }
+    
+    if (consultationForm.message && consultationForm.message.length > 300) {
+      consultationErrors.message = 'Комментарий не должен превышать 300 символов';
+      isValid = false;
+    }
+
+    // Валидация VIN (если указан)
+    if (consultationForm.vin && consultationForm.vin.trim() !== '') {
+      const vinError = validateVin(consultationForm.vin);
+      if (vinError) {
+        consultationErrors.vin = vinError;
+        isValid = false;
+      }
+    }
+    
+    if (!isValid) {
+      return;
+    }
+    
+    // Блокируем повторную отправку
+    if (isConsultationSubmitting) {
+      return;
+    }
+    
+    isConsultationSubmitting = true;
+    
+    try {
+      // Нормализуем телефон
+      const cleanedPhone = consultationForm.phone.trim().replace(/[\s\-\(\)]/g, '');
+      
+      // Нормализуем VIN: преобразуем в верхний регистр и удаляем пробелы
+      const normalizedVin = consultationForm.vin.trim().toUpperCase().replace(/\s/g, '') || null;
+      
+      // Отправляем запрос на сервер
+      const response = await helpRequestsApi.createHelpRequest({
+        name: consultationForm.name.trim(),
+        phone: cleanedPhone,
+        vin: normalizedVin,
+        message: consultationForm.message.trim() || null
+      });
+      
+      if (response.success) {
+        // Успех
+        consultationSuccess = true;
+        
+        // Очищаем форму
+        consultationForm = {
+          vin: '',
+          name: '',
+          phone: '',
+          message: ''
+        };
+        
+        // Показываем сообщение
+        setTimeout(() => {
+          consultationSuccess = false;
+        }, 5000);
+      } else {
+        // Ошибка от сервера
+        consultationErrors.general = response.error || 'Произошла ошибка при отправке заявки. Попробуйте позже.';
+      }
+    } catch (error) {
+      console.error('Ошибка отправки формы консультации:', error);
+      consultationErrors.general = 'Произошла ошибка при отправке заявки. Попробуйте позже или свяжитесь с нами по телефону.';
+    } finally {
+      isConsultationSubmitting = false;
+    }
   }
 
   function goToCatalogWithFilter(filter) {
     goto(`/catalog?${filter}=`);
+  }
+
+  // Обработчик подбора по автомобилю
+  function handleVehicleSearch() {
+    if (!vehicleSelection.year || !vehicleSelection.brand) {
+      alert('Пожалуйста, выберите год выпуска и марку автомобиля');
+      return;
+    }
+    
+    const params = new URLSearchParams();
+    
+    // Запрос по модели/модификации/году
+    const searchTerms = [
+      vehicleSelection.model,
+      vehicleSelection.modification
+    ].filter(Boolean);
+    if (searchTerms.length > 0) {
+      params.set('search', searchTerms.join(' '));
+    } else {
+      params.delete('search');
+    }
+    
+    params.set('vehicleBrand', vehicleSelection.brand);
+    if (vehicleSelection.model) params.set('vehicleModel', vehicleSelection.model);
+    if (vehicleSelection.modification) params.set('vehicleModification', vehicleSelection.modification);
+    if (vehicleSelection.year) params.set('vehicleYear', vehicleSelection.year);
+    
+    // Переходим в каталог с параметрами
+    goto(`/catalog?${params.toString()}`);
+  }
+
+  // Обработчик изменения марки (сброс модели и модификации)
+  function handleBrandChange() {
+    vehicleSelection.model = '';
+    vehicleSelection.modification = '';
+  }
+
+  // Обработчик изменения модели (сброс модификации)
+  function handleModelChange() {
+    vehicleSelection.modification = '';
   }
 
   onMount(() => {
@@ -305,55 +487,169 @@
         </p>
       </div>
 
+      {#if consultationSuccess}
+        <div class="bg-green-500 text-white rounded-xl border border-green-600 p-6 mb-6">
+          <div class="flex items-center gap-3">
+            <svg class="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+            <p class="font-medium">Ваша заявка отправлена. Специалист свяжется с вами в ближайшее время.</p>
+          </div>
+        </div>
+      {/if}
+
+      {#if consultationErrors.general}
+        <div class="bg-red-500 text-white rounded-xl border border-red-600 p-6 mb-6">
+          <div class="flex items-center gap-3">
+            <svg class="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p class="font-medium">{consultationErrors.general}</p>
+          </div>
+        </div>
+      {/if}
+
       <form onsubmit={handleConsultationSubmit} class="bg-gray-800 rounded-xl border border-gray-700 p-8">
         <div class="mb-6">
           <label for="consultation-vin" class="block text-sm font-medium text-gray-200 mb-2">
-            VIN-код вашего автомобиля
+            VIN-код вашего автомобиля (необязательно)
+            <span class="text-gray-400 text-xs ml-1">(17 символов)</span>
           </label>
           <input
             id="consultation-vin"
             type="text"
             bind:value={consultationForm.vin}
+            oninput={(e) => {
+              // Автоматически преобразуем VIN в верхний регистр при вводе и удаляем недопустимые символы
+              let value = e.target.value.toUpperCase().replace(/\s/g, '').replace(/[^A-Z0-9]/g, '');
+              
+              // Ограничиваем длину до 17 символов
+              if (value.length > 17) {
+                value = value.substring(0, 17);
+              }
+              
+              consultationForm.vin = value;
+              e.target.value = value;
+              
+              // Валидируем в реальном времени, если введено 17 символов
+              if (value.length === 17) {
+                const vinError = validateVin(value);
+                if (vinError) {
+                  consultationErrors = { ...consultationErrors, vin: vinError };
+                } else {
+                  // Очищаем ошибку VIN, если она была
+                  const { vin, ...rest } = consultationErrors;
+                  consultationErrors = rest;
+                }
+              } else if (value.length > 0 && value.length < 17) {
+                // Очищаем ошибку VIN, пока вводим (если была)
+                const { vin, ...rest } = consultationErrors;
+                consultationErrors = rest;
+              } else if (value.length === 0) {
+                // Очищаем ошибку VIN, если поле пустое
+                const { vin, ...rest } = consultationErrors;
+                consultationErrors = rest;
+              }
+            }}
+            onblur={() => {
+              // Валидируем при потере фокуса, если VIN указан
+              if (consultationForm.vin && consultationForm.vin.trim() !== '') {
+                const vinError = validateVin(consultationForm.vin);
+                if (vinError) {
+                  consultationErrors.vin = vinError;
+                }
+              }
+            }}
             placeholder="Например: WVWZZZ1KZAW123456"
-            class="block w-full px-4 py-3 border-2 border-gray-600 rounded-lg shadow-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all duration-200 bg-gray-700 text-white hover:border-gray-500"
-            required
+            maxlength="17"
+            class="block w-full px-4 py-3 border-2 rounded-lg shadow-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all duration-200 bg-gray-700 text-white uppercase font-mono {consultationErrors.vin ? 'border-red-500' : 'border-gray-600 hover:border-gray-500'}"
           />
+          {#if consultationErrors.vin}
+            <p class="text-red-400 text-sm mt-1">{consultationErrors.vin}</p>
+          {/if}
+          {#if consultationForm.vin && !consultationErrors.vin}
+            <p class="text-gray-400 text-xs mt-1">
+              {consultationForm.vin.length}/17 символов
+              {#if consultationForm.vin.length === 17}
+                <span class="text-green-400 ml-1">✓</span>
+              {/if}
+            </p>
+          {/if}
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <div>
             <label for="consultation-name" class="block text-sm font-medium text-gray-200 mb-2">
-              Ваше имя
+              Ваше имя <span class="text-red-400">*</span>
             </label>
             <input
               id="consultation-name"
               type="text"
               bind:value={consultationForm.name}
               placeholder="Иван"
-              class="block w-full px-4 py-3 border-2 border-gray-600 rounded-lg shadow-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all duration-200 bg-gray-700 text-white hover:border-gray-500"
+              class="block w-full px-4 py-3 border-2 rounded-lg shadow-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all duration-200 bg-gray-700 text-white {consultationErrors.name ? 'border-red-500' : 'border-gray-600 hover:border-gray-500'}"
               required
             />
+            {#if consultationErrors.name}
+              <p class="text-red-400 text-sm mt-1">{consultationErrors.name}</p>
+            {/if}
           </div>
           <div>
             <label for="consultation-phone" class="block text-sm font-medium text-gray-200 mb-2">
-              Телефон
+              Телефон <span class="text-red-400">*</span>
             </label>
             <input
               id="consultation-phone"
               type="tel"
               bind:value={consultationForm.phone}
               placeholder="+7 (999) 123-45-67"
-              class="block w-full px-4 py-3 border-2 border-gray-600 rounded-lg shadow-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all duration-200 bg-gray-700 text-white hover:border-gray-500"
+              class="block w-full px-4 py-3 border-2 rounded-lg shadow-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all duration-200 bg-gray-700 text-white {consultationErrors.phone ? 'border-red-500' : 'border-gray-600 hover:border-gray-500'}"
               required
             />
+            {#if consultationErrors.phone}
+              <p class="text-red-400 text-sm mt-1">{consultationErrors.phone}</p>
+            {/if}
+            <p class="text-gray-400 text-xs mt-1">Введите от 11 до 12 цифр</p>
           </div>
         </div>
 
-        <button type="submit" class="w-full btn-primary">
-          <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-          </svg>
-          Получить консультацию
+        <div class="mb-6">
+          <label for="consultation-message" class="block text-sm font-medium text-gray-200 mb-2">
+            Комментарий / сообщение (необязательно, до 300 символов)
+          </label>
+          <textarea
+            id="consultation-message"
+            bind:value={consultationForm.message}
+            placeholder="Опишите ваш вопрос или проблему..."
+            rows="4"
+            maxlength="300"
+            class="block w-full px-4 py-3 border-2 rounded-lg shadow-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all duration-200 bg-gray-700 text-white resize-none {consultationErrors.message ? 'border-red-500' : 'border-gray-600 hover:border-gray-500'}"
+          ></textarea>
+          {#if consultationErrors.message}
+            <p class="text-red-400 text-sm mt-1">{consultationErrors.message}</p>
+          {/if}
+          <p class="text-gray-400 text-xs mt-1">
+            {consultationForm.message.length}/300 символов
+          </p>
+        </div>
+
+        <button 
+          type="submit" 
+          disabled={isConsultationSubmitting}
+          class="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {#if isConsultationSubmitting}
+            <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Отправка...
+          {:else}
+            <svg class="w-5 h-5 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+            Получить консультацию
+          {/if}
         </button>
       </form>
     </div>
@@ -473,11 +769,15 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <label for="vehicle-year" class="block text-sm font-medium text-dark-500 mb-2">
-              Год выпуска
+              Год выпуска <span class="text-red-500">*</span>
             </label>
-            <select id="vehicle-year" class="input">
+            <select 
+              id="vehicle-year" 
+              class="input"
+              bind:value={vehicleSelection.year}
+            >
               <option value="">Выберите год</option>
-              {#each Array(30).fill(0).map((_, i) => 2024 - i) as year}
+              {#each vehicleYears as year}
                 <option value={year}>{year}</option>
               {/each}
             </select>
@@ -485,16 +785,18 @@
 
           <div>
             <label for="vehicle-brand" class="block text-sm font-medium text-dark-500 mb-2">
-              Марка
+              Марка <span class="text-red-500">*</span>
             </label>
-            <select id="vehicle-brand" class="input">
+            <select 
+              id="vehicle-brand" 
+              class="input"
+              bind:value={vehicleSelection.brand}
+              onchange={handleBrandChange}
+            >
               <option value="">Выберите марку</option>
-              <option value="audi">Audi</option>
-              <option value="bmw">BMW</option>
-              <option value="mercedes">Mercedes-Benz</option>
-              <option value="volkswagen">Volkswagen</option>
-              <option value="toyota">Toyota</option>
-              <option value="honda">Honda</option>
+              {#each vehicleBrands as brand}
+                <option value={brand}>{brand}</option>
+              {/each}
             </select>
           </div>
 
@@ -502,8 +804,19 @@
             <label for="vehicle-model" class="block text-sm font-medium text-dark-500 mb-2">
               Модель
             </label>
-            <select id="vehicle-model" class="input">
-              <option value="">Сначала выберите марку</option>
+            <select 
+              id="vehicle-model" 
+              class="input"
+              bind:value={vehicleSelection.model}
+              onchange={handleModelChange}
+              disabled={!vehicleSelection.brand}
+            >
+              <option value="">{vehicleSelection.brand ? 'Выберите модель' : 'Сначала выберите марку'}</option>
+              {#if vehicleSelection.brand}
+                {#each availableModels as model}
+                  <option value={model}>{model}</option>
+                {/each}
+              {/if}
             </select>
           </div>
 
@@ -511,13 +824,30 @@
             <label for="vehicle-modification" class="block text-sm font-medium text-dark-500 mb-2">
               Модификация
             </label>
-            <select id="vehicle-modification" class="input">
-              <option value="">Сначала выберите модель</option>
+            <select 
+              id="vehicle-modification" 
+              class="input"
+              bind:value={vehicleSelection.modification}
+              disabled={!vehicleSelection.model}
+            >
+              {#if !vehicleSelection.model}
+                <option value="">Сначала выберите модель</option>
+              {:else if availableModifications.length === 0}
+                <option value="">Нет данных о модификациях</option>
+              {:else}
+                <option value="">Выберите модификацию (необязательно)</option>
+                {#each availableModifications as modification}
+                  <option value={modification}>{modification}</option>
+                {/each}
+              {/if}
             </select>
           </div>
         </div>
 
-        <button class="w-full btn-primary mt-6">
+        <button 
+          class="w-full btn-primary mt-6"
+          onclick={handleVehicleSearch}
+        >
           <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>

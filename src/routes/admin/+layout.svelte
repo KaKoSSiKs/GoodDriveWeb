@@ -110,6 +110,12 @@
             >
               Клиенты
             </a>
+            <a 
+              href="/admin/help-requests" 
+              class="px-3 py-2 rounded-lg transition-colors whitespace-nowrap text-sm {isActive('/admin/help-requests') ? 'bg-primary-100 text-primary-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'}"
+            >
+              Запросы
+            </a>
           </nav>
           
           <!-- Кнопка бургера (< 1024px) -->
@@ -190,6 +196,13 @@
               class="block px-4 py-3 rounded-lg transition-colors {isActive('/admin/customers') ? 'bg-primary-100 text-primary-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'}"
             >
               👥 Клиенты
+            </a>
+            <a 
+              href="/admin/help-requests"
+              onclick={closeMobileMenu}
+              class="block px-4 py-3 rounded-lg transition-colors {isActive('/admin/help-requests') ? 'bg-primary-100 text-primary-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'}"
+            >
+              💬 Запросы
             </a>
             
             <div class="border-t border-gray-200 my-2 pt-2">

@@ -17,6 +17,7 @@
   let priceMin = $state(filters.price_min || '');
   let priceMax = $state(filters.price_max || '');
   let searchTimeout = null;
+  let searchError = $state('');
   
   // Производные значения
   const hasActiveFilters = $derived(
@@ -42,6 +43,9 @@
   function handleSearchInput(event) {
     const value = event.target.value;
     searchValue = value;
+    if (searchError && value.trim().length > 0) {
+      searchError = '';
+    }
     debounceSearch(value);
   }
   
@@ -57,7 +61,13 @@
   
   function handleSearchSubmit(event) {
     event.preventDefault();
-    handleInputChange('search', searchValue);
+    const trimmedValue = searchValue.trim();
+    if (!trimmedValue) {
+      searchError = 'Введите номер или название детали';
+      return;
+    }
+    searchError = '';
+    handleInputChange('search', trimmedValue);
   }
   
   function handleBrandToggle(brandId, checked) {
@@ -175,6 +185,9 @@
             </button>
           {/if}
         </div>
+        {#if searchError}
+          <p class="text-sm text-red-500 mt-2" aria-live="polite">{searchError}</p>
+        {/if}
       </form>
     </div>
     

@@ -591,5 +591,34 @@ export const analyticsApi = {
   }
 };
 
+// API для работы с запросами консультации
+export const helpRequestsApi = {
+  async getHelpRequests(params = {}) {
+    const queryParams = new URLSearchParams();
+    if (params.status) queryParams.append('status', params.status);
+    if (params.limit) queryParams.append('limit', params.limit);
+    if (params.page) queryParams.append('page', params.page);
+    
+    const url = `/api/help-requests${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+    return api.get(url);
+  },
+  
+  async createHelpRequest(data) {
+    return api.post('/api/help-requests', data);
+  },
+  
+  async updateHelpRequestStatus(id, status) {
+    return api.patch(`/api/help-requests/${id}`, { status });
+  },
+  
+  async getHelpRequest(id) {
+    return api.get(`/api/help-requests/${id}`);
+  },
+  
+  async reDecodeVin(id) {
+    return api.patch(`/api/help-requests/${id}`, { decodeVin: true });
+  }
+};
+
 export default api;
 

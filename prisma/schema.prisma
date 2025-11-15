@@ -340,3 +340,55 @@ model SeoMetadata {
   @@map("seo_metadata")
 }
 
+// ==================== HELP REQUESTS ====================
+
+model HelpRequest {
+  id                Int      @id @default(autoincrement())
+  type              String   @default("help_request") @db.VarChar(50)
+  name              String   @db.VarChar(200)
+  phone             String   @db.VarChar(20)
+  vin               String?  @db.VarChar(50)
+  message           String?  @db.Text
+  status            String   @default("new") @db.VarChar(20)
+  // Данные об автомобиле (как в СТС - декодированные из VIN)
+  vehicleYear       Int?     @map("vehicle_year") @db.UnsignedInt
+  vehicleBrand      String?  @map("vehicle_brand") @db.VarChar(100)
+  vehicleModel      String?  @map("vehicle_model") @db.VarChar(100)
+  vehicleModification String? @map("vehicle_modification") @db.VarChar(100)
+  vehicleColor      String?  @map("vehicle_color") @db.VarChar(50)
+  // Тип и категория ТС
+  vehicleType       String?  @map("vehicle_type") @db.VarChar(100) // Тип транспортного средства (легковой, грузовой и т.д.)
+  vehicleCategory   String?  @map("vehicle_category") @db.VarChar(10) // Категория ТС (A, B, C, D, BE, CE, DE)
+  // Двигатель
+  engineType        String?  @map("engine_type") @db.VarChar(50) // Тип двигателя (бензин, дизель, гибрид, электродвигатель)
+  engineVolume      Int?     @map("engine_volume") @db.UnsignedInt // Объем двигателя (см³)
+  enginePowerHp     Int?     @map("engine_power_hp") @db.UnsignedInt // Мощность (л.с.)
+  enginePowerKw     Decimal? @map("engine_power_kw") @db.Decimal(10, 2) // Мощность (кВт)
+  engineNumber      String?  @map("engine_number") @db.VarChar(100) // Номер двигателя
+  // Кузов и шасси
+  bodyNumber        String?  @map("body_number") @db.VarChar(100) // Номер кузова
+  chassisNumber     String?  @map("chassis_number") @db.VarChar(100) // Номер шасси (рама)
+  bodyType          String?  @map("body_type") @db.VarChar(50) // Тип кузова (седан, хэтчбек, универсал и т.д.)
+  // Масса
+  maxMass           Int?     @map("max_mass") @db.UnsignedInt // Разрешенная максимальная масса (кг)
+  unladenMass       Int?     @map("unladen_mass") @db.UnsignedInt // Масса без нагрузки (кг)
+  // Трансмиссия и привод
+  transmissionType  String?  @map("transmission_type") @db.VarChar(50) // Тип КПП (механическая, автоматическая, вариатор, робот)
+  driveType         String?  @map("drive_type") @db.VarChar(50) // Тип привода (передний, задний, полный)
+  // Дополнительные данные
+  passengerSeats    Int?     @map("passenger_seats") @db.UnsignedInt // Количество пассажирских мест
+  ecoClass          String?  @map("eco_class") @db.VarChar(20) // Экологический класс (Euro-3, Euro-4, Euro-5, Euro-6)
+  manufacturerCountry String? @map("manufacturer_country") @db.VarChar(100) // Страна изготовителя
+  // Все остальные данные в JSON (госномер, ПТС, таможня, пробег, владельцы и т.д.)
+  vehicleData       String?  @map("vehicle_data") @db.Text // JSON с дополнительными данными СТС
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@index([type])
+  @@index([status])
+  @@index([createdAt])
+  @@index([vin])
+  @@index([vehicleBrand])
+  @@map("help_requests")
+}
+
