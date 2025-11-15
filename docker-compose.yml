@@ -17,8 +17,10 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE:-gooddrive_db}
       MYSQL_USER: ${MYSQL_USER:-gooddrive_user}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-gooddrive_password}
-    ports:
-      - "3306:3306"
+    # Порт не пробрасываем наружу - приложение подключается через внутреннюю сеть Docker
+    # Раскомментируйте следующую строку, если нужен доступ к MySQL с хоста
+    # ports:
+    #   - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - ./docker/mysql/01-init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
