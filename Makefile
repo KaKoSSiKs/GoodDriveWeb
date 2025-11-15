@@ -24,8 +24,12 @@ logs: ## Показать логи
 	docker compose logs -f
 
 clean: ## Удалить контейнеры и volumes
-	docker compose down -v
+	docker compose down -v --remove-orphans
 	@echo "✓ Контейнеры и данные удалены"
+
+clean-orphans: ## Удалить orphan контейнеры
+	docker compose down --remove-orphans
+	@echo "✓ Orphan контейнеры удалены"
 
 seed: ## Заполнить БД тестовыми данными
 	docker compose exec app npm run db:seed
