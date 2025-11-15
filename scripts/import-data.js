@@ -30,8 +30,21 @@ const CONFIG = {
   // Можно изменить через переменную окружения IMPORT_LIMIT
   IMPORT_LIMIT: parseInt(process.env.IMPORT_LIMIT || '100', 10),
   
-  // Путь к CSV файлу
-  CSV_FILE: path.join(__dirname, '../db_of_catalog.csv'),
+  // Путь к CSV файлу (проверяем несколько возможных мест)
+  CSV_FILE: (() => {
+    const possiblePaths = [
+      path.join(__dirname, '../db_of_catalog.csv'),
+      path.join(__dirname, '../docker/mysql/data.csv'),
+      '/docker-entrypoint-initdb.d/data.csv',
+      '/app/docker/mysql/data.csv'
+    ];
+    for (const csvPath of possiblePaths) {
+      if (fs.existsSync(csvPath)) {
+        return csvPath;
+      }
+    }
+    return path.join(__dirname, '../db_of_catalog.csv');
+  })(),
   
   // Папка для сохранения изображений
   IMAGES_DIR: path.join(__dirname, '../static/images/parts'),

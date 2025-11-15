@@ -1,287 +1,165 @@
-# 🚀 Быстрый старт GoodDrive
+# ⚡ Быстрый старт
 
-## Требования
+## Production развертывание
 
-- **Docker Desktop** 4.0+
-- **Git**
-- 4 GB RAM минимум
-- 10 GB свободного места на диске
-
----
-
-## Запуск за 60 секунд
-
-### Windows (PowerShell)
-
-```powershell
-# 1. Клонировать проект (если ещё не клонирован)
-cd gooddrive-sveltekit
-
-# 2. Запустить автоматический скрипт
-.\start.ps1
-```
-
-### Linux / macOS
+### 1. Клонирование и настройка
 
 ```bash
-# 1. Клонировать проект
-cd gooddrive-sveltekit
+# Клонировать репозиторий
+git clone <repository-url>
+cd GoodDriveWeb
 
-# 2. Дать права на выполнение и запустить
-chmod +x start.sh
-./start.sh
+# Создать .env файл
+cp .env.example .env
+
+# Отредактировать .env (обязательно!)
+nano .env
 ```
 
-### Или напрямую через Docker Compose
+### 2. Настройка .env
+
+Минимально необходимые переменные:
+
+```env
+MYSQL_ROOT_PASSWORD=your_secure_root_password
+MYSQL_PASSWORD=your_secure_password
+JWT_SECRET=$(openssl rand -base64 64)
+PUBLIC_SITE_URL=https://your-domain.com
+```
+
+### 3. Запуск
 
 ```bash
-cd gooddrive-sveltekit
-docker-compose up -d
+# Вариант 1: Через Makefile
+make prod
+
+# Вариант 2: Напрямую
+docker compose up -d --build
 ```
 
----
-
-## ✅ Проверка работы
-
-После запуска откройте в браузере:
-
-### 🌐 Основной сайт
-**http://localhost:3000**
-
-- Главная страница
-- Каталог запчастей
-- Корзина и оформление заказа
-
-### 👨‍💼 Админ-панель
-**http://localhost:3000/admin**
-
-**Учётные данные:**
-- Email: `admin`
-- Пароль: `12345678`
-
-Доступные разделы:
-- Dashboard - общая статистика
-- Inventory - управление товарами
-- Orders - заказы клиентов
-- Customers - CRM
-- Analytics - аналитика продаж
-- Finance - финансы
-
-### 🗄️ PhpMyAdmin
-**http://localhost:8080**
-
-**Учётные данные:**
-- Сервер: `mysql`
-- Пользователь: `gooddrive_user`
-- Пароль: `gooddrive_password`
-- База данных: `gooddrive`
-
----
-
-## 📊 Проверка статуса контейнеров
+### 4. Проверка
 
 ```bash
-# Просмотр запущенных контейнеров
-docker-compose ps
+# Статус контейнеров
+make status
+# или
+docker compose ps
 
-# Должны быть запущены 3 контейнера:
-# - gooddrive-app (healthy)
-# - gooddrive-mysql (healthy)
-# - gooddrive-phpmyadmin (running)
+# Логи
+make logs
+# или
+docker compose logs -f
+
+# Открыть в браузере
+# http://localhost (через nginx)
 ```
 
----
-
-## 📝 Логи
+## Development развертывание
 
 ```bash
-# Все логи
-docker-compose logs -f
+# Запустить dev окружение
+make dev
 
-# Только приложение
-docker-compose logs -f app
-
-# Только БД
-docker-compose logs -f mysql
-
-# Последние 50 строк
-docker-compose logs --tail 50 app
+# Или
+docker compose -f docker-compose.dev.yml up -d
 ```
 
----
+Доступно:
+- Приложение: http://localhost:3000
+- PhpMyAdmin: http://localhost:8080
 
-## 🛠️ Управление
-
-### Остановка
+## Полезные команды
 
 ```bash
-# Остановить все контейнеры
-docker-compose down
+# Остановить все
+make down
 
-# Остановить и удалить volumes (БД будет очищена)
-docker-compose down -v
+# Перезапустить
+make restart
+
+# Очистить все (включая volumes)
+make clean
+
+# Просмотр логов конкретного сервиса
+docker compose logs -f app
+docker compose logs -f mysql
+docker compose logs -f nginx
 ```
 
-### Перезапуск
+## Импорт данных
+
+Данные импортируются автоматически при первом запуске.
+
+### Настройка импорта в .env:
+
+```env
+# Импортировать все строки (4000+)
+IMPORT_LIMIT=0
+
+# Импортировать первые 100 строк (для теста)
+IMPORT_LIMIT=100
+
+# Принудительный импорт
+FORCE_IMPORT=true
+```
+
+### Ручной импорт
 
 ```bash
-# Быстрый перезапуск
-docker-compose restart
+# Войти в контейнер
+docker compose exec app sh
 
-# Полный перезапуск с пересборкой
-docker-compose down
-docker-compose up -d --build
+# Запустить импорт
+node scripts/import-data.js
 ```
 
-### Пересоздание БД
+## Создание admin пользователя
 
 ```bash
-# Остановить и удалить данные
-docker-compose down -v
-
-# Запустить заново
-docker-compose up -d
-
-# Дождаться старта MySQL (30 сек) и заполнить БД
-docker-compose exec app npm run db:seed
+docker compose exec app node scripts/create-admin.js
 ```
 
----
+## Troubleshooting
 
-## 🐛 Решение проблем
-
-### Порт 3000 уже занят
+### Приложение не запускается
 
 ```bash
-# Windows
-netstat -ano | findstr :3000
-taskkill /PID <PID> /F
+# Проверить логи
+docker compose logs app
 
-# Linux/Mac
-lsof -ti:3000 | xargs kill -9
-
-# Или измените порт в docker-compose.yml
-# ports: - "3001:3000"
+# Проверить подключение к БД
+docker compose exec app node scripts/test-db-connection.js
 ```
 
-### Ошибка подключения к БД
+### Nginx 502 Bad Gateway
 
 ```bash
-# Проверьте что MySQL запущен и healthy
-docker-compose ps
+# Проверить статус приложения
+docker compose ps app
 
-# Перезапустите MySQL
-docker-compose restart mysql
-
-# Проверьте логи
-docker-compose logs mysql
+# Проверить логи
+docker compose logs app
+docker compose logs nginx
 ```
 
-### Контейнер app падает
+### База данных не подключается
 
 ```bash
-# Просмотрите логи
-docker-compose logs app
+# Проверить статус MySQL
+docker compose ps mysql
 
-# Пересоберите образ
-docker-compose build --no-cache app
-docker-compose up -d app
+# Проверить логи
+docker compose logs mysql
+
+# Проверить переменные окружения
+docker compose exec mysql env | grep MYSQL
 ```
 
-### Нет данных в БД
+## Следующие шаги
 
-```bash
-# Запустите seed скрипт
-docker-compose exec app npm run db:seed
-```
+После успешного запуска:
 
----
-
-## 🔧 Development режим
-
-```bash
-# Запуск с hot-reload
-docker-compose -f docker-compose.dev.yml up -d
-
-# Логи в реальном времени
-docker-compose -f docker-compose.dev.yml logs -f app
-```
-
-В dev режиме:
-- ✅ Hot-reload при изменении файлов
-- ✅ Source maps для дебага
-- ✅ Детальные логи
-- ✅ Vite dev server на 5173 (опционально)
-
----
-
-## 📚 Полезные команды
-
-### Prisma
-
-```bash
-# Prisma Studio (GUI для БД)
-docker-compose exec app npx prisma studio
-# Откройте http://localhost:5555
-
-# Создать миграцию
-docker-compose exec app npx prisma migrate dev --name my_migration
-
-# Применить миграции
-docker-compose exec app npx prisma migrate deploy
-
-# Сгенерировать клиент
-docker-compose exec app npx prisma generate
-```
-
-### Bash в контейнере
-
-```bash
-# Войти в контейнер приложения
-docker-compose exec app sh
-
-# Войти в MySQL
-docker-compose exec mysql mysql -u gooddrive_user -pgooddrive_password gooddrive
-```
-
-### Очистка Docker
-
-```bash
-# Удалить неиспользуемые образы
-docker system prune -a
-
-# Удалить volumes
-docker volume prune
-
-# Полная очистка
-docker system prune -a --volumes
-```
-
----
-
-## 📖 Документация
-
-- **CHANGES.md** - Полный список всех изменений
-- **RECOMMENDATIONS.md** - Рекомендации по улучшению
-- **README.md** - Основная документация проекта
-
----
-
-## 🎉 Готово!
-
-Ваш GoodDrive работает и готов к использованию!
-
-**Следующие шаги:**
-1. Изучите админ-панель
-2. Создайте несколько тестовых заказов
-3. Протестируйте все функции
-4. Измените дефолтные пароли в production
-
-**Поддержка:**
-- Проблемы? Проверьте логи: `docker-compose logs -f`
-- Вопросы? Смотрите документацию в папке `documentation/`
-
----
-
-_Создано с ❤️ для GoodDrive_
-
+1. Настроить SSL (HTTPS) - см. [DEPLOYMENT.md](./DEPLOYMENT.md)
+2. Создать admin пользователя
+3. Настроить домен и DNS
+4. Настроить мониторинг

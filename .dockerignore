@@ -2,15 +2,13 @@
 node_modules
 npm-debug.log
 yarn-error.log
-# package-lock.json нужен для npm ci, не исключаем его
-yarn.lock
 
 # Build outputs
 build
 .svelte-kit
 dist
 
-# Environment files
+# Environment
 .env
 .env.local
 .env.*.local
@@ -31,35 +29,31 @@ Thumbs.db
 .gitignore
 
 # Documentation
-README.md
-*.md
 documentation
+*.md
+!README.md
 
-# Tests
+# Docker
+docker-compose*.yml
+Dockerfile*
+.dockerignore
+
+# Scripts (кроме необходимых для импорта)
+scripts/export-from-postgres.py
+scripts/exported-data.json
+scripts/fix-mysql-user.sh
+scripts/fix-mysql-user.sql
+scripts/fix-user.sql
+
+# CSV backups
+*_backup.csv
+
+# Temporary files
+*.tmp
+*.log
+*.xlsx
+
+# Test files
 test
 tests
 __tests__
-*.test.js
-*.test.ts
-*.spec.js
-*.spec.ts
-
-# Docker
-Dockerfile.dev
-docker-compose.dev.yml
-.dockerignore
-
-# Logs
-logs
-*.log
-
-# Misc
-coverage
-.nyc_output
-.cache
-
-# Prisma
-prisma/migrations
-
-# Static files (копируются отдельно в Dockerfile)
-# static

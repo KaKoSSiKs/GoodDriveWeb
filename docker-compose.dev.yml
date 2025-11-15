@@ -1,24 +1,29 @@
 version: '3.8'
 
 services:
-  # MySQL Database
+  # MySQL Database (Development)
   mysql:
     image: mysql:8.0
     container_name: gooddrive-mysql-dev
     restart: unless-stopped
+    command: >
+      --default-authentication-plugin=mysql_native_password
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-gooddrive_db}
+      MYSQL_USER: ${MYSQL_USER:-gooddrive_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-gooddrive_password}
     ports:
       - "3306:3306"
     volumes:
       - mysql_dev_data:/var/lib/mysql
+      - ./docker/mysql/01-init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     networks:
       - gooddrive-dev-network
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-rootpassword}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -27,16 +32,16 @@ services:
   # SvelteKit Development Server
   app:
     build:
-      context: .
-      dockerfile: Dockerfile.dev
+      context: ..
+      dockerfile: docker/app/Dockerfile.dev
     container_name: gooddrive-app-dev
     restart: unless-stopped
     ports:
       - "3000:3000"
       - "5173:5173"
     environment:
-      DATABASE_URL: ${DATABASE_URL}
-      JWT_SECRET: ${JWT_SECRET}
+      DATABASE_URL: mysql://${MYSQL_USER:-gooddrive_user}:${MYSQL_PASSWORD:-gooddrive_password}@mysql:3306/${MYSQL_DATABASE:-gooddrive_db}
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-key}
       NODE_ENV: development
       PORT: 3000
     depends_on:
@@ -45,12 +50,11 @@ services:
     networks:
       - gooddrive-dev-network
     volumes:
-      - .:/app
+      - ..:/app
       - /app/node_modules
       - /app/.svelte-kit
-    command: sh -c "npm install && npx prisma generate && npx prisma migrate deploy && npm run dev -- --host 0.0.0.0"
 
-  # PhpMyAdmin
+  # PhpMyAdmin (Development only)
   phpmyadmin:
     image: phpmyadmin:latest
     container_name: gooddrive-phpmyadmin-dev
@@ -58,8 +62,8 @@ services:
     environment:
       PMA_HOST: mysql
       PMA_PORT: 3306
-      PMA_USER: ${MYSQL_USER}
-      PMA_PASSWORD: ${MYSQL_PASSWORD}
+      PMA_USER: ${MYSQL_USER:-gooddrive_user}
+      PMA_PASSWORD: ${MYSQL_PASSWORD:-gooddrive_password}
     ports:
       - "8080:80"
     depends_on:
@@ -74,4 +78,3 @@ volumes:
 networks:
   gooddrive-dev-network:
     driver: bridge
-

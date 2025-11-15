@@ -1,8 +1,10 @@
+version: '3.8'
+
 services:
   # MySQL Database
-  db:
+  mysql:
     image: mysql:8.0
-    container_name: gooddrive-db
+    container_name: gooddrive-mysql
     restart: unless-stopped
     command: >
       --default-authentication-plugin=mysql_native_password
@@ -11,6 +13,7 @@ services:
       --max-connections=200
       --innodb-buffer-pool-size=1G
       --innodb-log-file-size=256M
+      --local-infile=1
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-gooddrive_db}
@@ -20,93 +23,51 @@ services:
       - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./mysql-init:/docker-entrypoint-initdb.d
+      - ./docker/mysql/01-init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./docker/mysql/data.csv:/docker-entrypoint-initdb.d/data.csv:ro
     networks:
       - gooddrive-network
     healthcheck:
-      test: ["CMD", "sh", "-c", "mysqladmin ping -h localhost -u root -p${MYSQL_ROOT_PASSWORD:-rootpassword} && mysql -h localhost -u root -p${MYSQL_ROOT_PASSWORD:-rootpassword} -e 'SELECT 1' ${MYSQL_DATABASE:-gooddrive_db}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-rootpassword}"]
       interval: 5s
       timeout: 5s
       retries: 10
       start_period: 40s
 
-  # MySQL User Fixer (исправляет пользователя после запуска MySQL)
-  mysql-fixer:
-    image: mysql:8.0
-    container_name: gooddrive-mysql-fixer
-    restart: "no"
-    depends_on:
-      db:
-        condition: service_healthy
-    environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
-      MYSQL_USER: ${MYSQL_USER:-gooddrive_user}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-gooddrive_password}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-gooddrive_db}
-    networks:
-      - gooddrive-network
-    volumes:
-      - ./scripts/fix-user.sql:/tmp/fix-user.sql:ro
-    command: >
-      sh -c "
-        echo '🔧 Исправление пользователя MySQL...' &&
-        until mysqladmin ping -h db -u root -p\"$${MYSQL_ROOT_PASSWORD:-rootpassword}\" --silent 2>/dev/null; do
-          echo '⏳ Ожидание MySQL...' &&
-          sleep 2
-        done &&
-        cp /tmp/fix-user.sql /tmp/fix-user-temp.sql &&
-        sed -i \"s/gooddrive_user/$${MYSQL_USER:-gooddrive_user}/g; s/gooddrive_password/$${MYSQL_PASSWORD:-gooddrive_password}/g; s/gooddrive_db/$${MYSQL_DATABASE:-gooddrive_db}/g\" /tmp/fix-user-temp.sql &&
-        mysql -h db -u root -p\"$${MYSQL_ROOT_PASSWORD:-rootpassword}\" < /tmp/fix-user-temp.sql 2>/dev/null &&
-        echo '✅ Пользователь MySQL исправлен'
-      "
-
   # SvelteKit Application
   app:
     build:
-      context: .
-      dockerfile: Dockerfile
-      # ARG для передачи переменных во время сборки (build time)
-      # PUBLIC_* переменные должны быть доступны во время сборки SvelteKit
+      context: ..
+      dockerfile: docker/app/Dockerfile
       args:
-        PUBLIC_SITE_URL: ${PUBLIC_SITE_URL:-http://localhost:3000}
+        PUBLIC_SITE_URL: ${PUBLIC_SITE_URL:-http://localhost}
         PUBLIC_YM_COUNTER_ID: ${PUBLIC_YM_COUNTER_ID:-}
         PUBLIC_GA4_ID: ${PUBLIC_GA4_ID:-}
         PUBLIC_GOOGLE_VERIFICATION: ${PUBLIC_GOOGLE_VERIFICATION:-}
         PUBLIC_YANDEX_VERIFICATION: ${PUBLIC_YANDEX_VERIFICATION:-}
     container_name: gooddrive-app
     restart: unless-stopped
-    ports:
-      - "3000:3000"
     environment:
-      # Переменные окружения для runtime
-      # DATABASE_URL должен использовать те же переменные, что и MySQL сервис
-      # Важно: используем 'db' как хост (имя сервиса в Docker Compose), а не 'mysql'
-      DATABASE_URL: mysql://${MYSQL_USER:-gooddrive_user}:${MYSQL_PASSWORD:-gooddrive_password}@db:3306/${MYSQL_DATABASE:-gooddrive_db}
+      DATABASE_URL: mysql://${MYSQL_USER:-gooddrive_user}:${MYSQL_PASSWORD:-gooddrive_password}@mysql:3306/${MYSQL_DATABASE:-gooddrive_db}
       JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
       NODE_ENV: production
       PORT: 3000
-      # Лимит импорта данных (0 = все строки, по умолчанию 100)
-      IMPORT_LIMIT: ${IMPORT_LIMIT:-100}
     depends_on:
-      db:
+      mysql:
         condition: service_healthy
-      mysql-fixer:
-        condition: service_completed_successfully
     networks:
       - gooddrive-network
     volumes:
-      - ./static:/app/static
-    # Команда запуска: миграции -> импорт данных -> запуск приложения
+      - ./static:/app/static:ro
+      - ./docker/mysql/data.csv:/app/docker/mysql/data.csv:ro
+      - ./scripts:/app/scripts:ro
     command: >
       sh -c "
-        echo '🔍 Проверка DATABASE_URL...' &&
-        echo \"DATABASE_URL=$$DATABASE_URL\" &&
-        echo '' &&
-        echo '⏳ Ожидание готовности MySQL (дополнительная задержка)...' &&
+        echo '⏳ Ожидание готовности MySQL...' &&
         sleep 5 &&
         echo '🚀 Применение миграций Prisma...' &&
         for i in 1 2 3 4 5; do
-          npm exec prisma migrate deploy && break || {
+          npx prisma migrate deploy && break || {
             echo \"⚠️ Попытка $$i/5 не удалась, повтор через 5 секунд...\" &&
             sleep 5
           }
@@ -114,8 +75,8 @@ services:
         echo '✅ Миграции применены' &&
         echo '' &&
         echo '📦 Импорт данных из CSV...' &&
-        node scripts/import-data.js &&
-        echo '✅ Импорт данных завершен' &&
+        node scripts/import-data.js || echo '⚠️ Импорт данных пропущен (данные уже есть или ошибка)' &&
+        echo '✅ Импорт завершен' &&
         echo '' &&
         echo '🚀 Запуск приложения...' &&
         node build/index.js
@@ -127,8 +88,34 @@ services:
       retries: 3
       start_period: 60s
 
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: gooddrive-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - certbot_data:/var/www/certbot
+      - certbot_etc:/etc/letsencrypt
+    depends_on:
+      - app
+    networks:
+      - gooddrive-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
 volumes:
   mysql_data:
+    driver: local
+  certbot_data:
+    driver: local
+  certbot_etc:
     driver: local
 
 networks:
