@@ -8,6 +8,7 @@ import { createApiHandler, handleError, createErrorResponse, ValidationError } f
 import { logger } from '$lib/server/logger';
 import type { Prisma } from '@prisma/client';
 import { CATEGORIES, getCategoryKeywords } from '$lib/utils/categories';
+import { getLocalImagesForPart } from '$lib/server/images';
 
 // Валидация и обработка запроса
 const handler: RequestHandler = async ({ url }) => {
@@ -255,12 +256,19 @@ const handler: RequestHandler = async ({ url }) => {
 
 	const results = parts.map(part => {
 		// Маппим изображения, проверяя наличие imageUrl
-		const mappedImages = (part.images || []).map(img => ({
+		let mappedImages = (part.images || []).map(img => ({
 			id: img.id,
 			image_url: img.imageUrl || null, // Явно указываем null если нет URL
 			alt_text: img.altText || part.title,
 			order_index: img.orderIndex
 		})).filter(img => img.image_url !== null); // Убираем изображения без URL
+
+		if (mappedImages.length === 0) {
+			const localImages = getLocalImagesForPart(part.id, part.title);
+			if (localImages.length > 0) {
+				mappedImages = localImages;
+			}
+		}
 		
 		return {
 			id: part.id,

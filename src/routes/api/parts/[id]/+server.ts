@@ -7,6 +7,7 @@ import type { ApiResponse } from '$lib/types';
 import { updatePartSchema } from '$lib/server/validators/parts.validator';
 import { createErrorResponse, ValidationError } from '$lib/server/error-handler';
 import { logger } from '$lib/server/logger';
+import { getLocalImagesForPart } from '$lib/server/images';
 
 export const GET: RequestHandler = async ({ params }) => {
 	try {
@@ -49,6 +50,17 @@ export const GET: RequestHandler = async ({ params }) => {
 			}, { status: 404 });
 		}
 
+		let images = part.images.map(img => ({
+			id: img.id,
+			image_url: img.imageUrl,
+			alt_text: img.altText || part.title,
+			order_index: img.orderIndex
+		}));
+
+		if (images.length === 0) {
+			images = getLocalImagesForPart(part.id, part.title);
+		}
+
 		const result = {
 			id: part.id,
 			is_active: part.isActive,
@@ -65,12 +77,7 @@ export const GET: RequestHandler = async ({ params }) => {
 			price_opt: part.priceOpt.toFixed(2),
 			cost_price: part.costPrice.toFixed(2),
 			description: part.description,
-			images: part.images.map(img => ({
-				id: img.id,
-				image_url: img.imageUrl,
-				alt_text: img.altText || part.title,
-				order_index: img.orderIndex
-			})),
+			images,
 			created_at: part.createdAt.toISOString(),
 			updated_at: part.updatedAt.toISOString()
 		};
@@ -205,6 +212,17 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 
 		logger.info(`Part ${partId} updated successfully`);
 
+		let responseImages = updatedPart.images.map(img => ({
+			id: img.id,
+			image_url: img.imageUrl,
+			alt_text: img.altText || updatedPart.title,
+			order_index: img.orderIndex
+		}));
+
+		if (responseImages.length === 0) {
+			responseImages = getLocalImagesForPart(updatedPart.id, updatedPart.title);
+		}
+
 		return json<ApiResponse>({
 			success: true,
 			data: {
@@ -223,12 +241,7 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 				price_opt: updatedPart.priceOpt.toFixed(2),
 				cost_price: updatedPart.costPrice.toFixed(2),
 				description: updatedPart.description,
-				images: updatedPart.images.map(img => ({
-					id: img.id,
-					image_url: img.imageUrl,
-					alt_text: img.altText || updatedPart.title,
-					order_index: img.orderIndex
-				})),
+				images: responseImages,
 				created_at: updatedPart.createdAt.toISOString(),
 				updated_at: updatedPart.updatedAt.toISOString()
 			}

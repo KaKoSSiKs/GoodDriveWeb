@@ -469,13 +469,50 @@ export const validationUtils = {
 export const imageUtils = {
   // Преобразовать относительный URL изображения в абсолютный
   getAbsoluteUrl(imageUrl) {
-    if (!imageUrl) return null;
-    // Если URL уже абсолютный (начинается с http:// или https://), возвращаем как есть
-    if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
-      return imageUrl;
-    }
-    // Для относительных путей возвращаем как есть (SvelteKit static)
-    return imageUrl;
+		if (!imageUrl || typeof imageUrl !== 'string') {
+			return null;
+		}
+
+		const trimmed = imageUrl.trim();
+		if (!trimmed) {
+			return null;
+		}
+
+		// data URL (base64)
+		if (trimmed.startsWith('data:')) {
+			return trimmed;
+		}
+
+		// Абсолютные URL
+		if (/^https?:\/\//i.test(trimmed)) {
+			return trimmed;
+		}
+
+		// Протокол-relative URL
+		if (trimmed.startsWith('//')) {
+			const protocol = typeof window !== 'undefined' ? window.location.protocol : 'https:';
+			return `${protocol}${trimmed}`;
+		}
+
+		// Приводим относительные пути к виду /images/...
+		const normalizedPath = trimmed
+			.replace(/\\/g, '/')
+			.replace(/^\.?\//, '');
+		const withLeadingSlash = normalizedPath.startsWith('/')
+			? normalizedPath
+			: `/${normalizedPath}`;
+
+		// В браузере возвращаем абсолютный URL (чтобы избежать проблем с относительными путями)
+		if (typeof window !== 'undefined') {
+			try {
+				return new URL(withLeadingSlash, window.location.origin).toString();
+			} catch {
+				return withLeadingSlash;
+			}
+		}
+
+		// При SSR достаточно вернуть нормализованный путь
+		return withLeadingSlash;
   },
 };
 

@@ -384,13 +384,13 @@
           <thead class="bg-gray-50">
             <tr>
               <th class="text-left py-3 px-3 text-xs font-semibold text-gray-700">Товар</th>
-              <th class="text-left py-3 px-3 text-xs font-semibold text-gray-700">Артикул</th>
-              <th class="text-left py-3 px-3 text-xs font-semibold text-gray-700">Бренд</th>
-              <th class="text-left py-3 px-3 text-xs font-semibold text-gray-700">Склад</th>
-              <th class="text-center py-3 px-2 text-xs font-semibold text-gray-700">На скл.</th>
-              <th class="text-center py-3 px-2 text-xs font-semibold text-gray-700">Резерв</th>
-              <th class="text-center py-3 px-2 text-xs font-semibold text-gray-700">Доступ.</th>
-              <th class="text-right py-3 px-3 text-xs font-semibold text-gray-700">Цена</th>
+              <th class="hidden md:table-cell text-left py-3 px-3 text-xs font-semibold text-gray-700">Артикул</th>
+              <th class="hidden md:table-cell text-left py-3 px-3 text-xs font-semibold text-gray-700">Бренд</th>
+              <th class="hidden md:table-cell text-left py-3 px-3 text-xs font-semibold text-gray-700">Склад</th>
+              <th class="hidden md:table-cell text-center py-3 px-2 text-xs font-semibold text-gray-700">На скл.</th>
+              <th class="hidden md:table-cell text-center py-3 px-2 text-xs font-semibold text-gray-700">Резерв</th>
+              <th class="hidden md:table-cell text-center py-3 px-2 text-xs font-semibold text-gray-700">Доступ.</th>
+              <th class="hidden md:table-cell text-right py-3 px-3 text-xs font-semibold text-gray-700">Цена</th>
             </tr>
           </thead>
           <tbody>
@@ -413,21 +413,21 @@
                     </div>
                   </div>
                 </td>
-                <td class="py-3 px-3">
+                <td class="hidden md:table-cell py-3 px-3">
                   <span class="font-mono text-xs text-gray-600 break-all">
                     {part.original_number || part.manufacturer_number || '-'}
                   </span>
                 </td>
-                <td class="py-3 px-3 text-xs text-gray-600">{part.brand_name || '-'}</td>
-                <td class="py-3 px-3 text-xs text-gray-600 max-w-[150px]">
+                <td class="hidden md:table-cell py-3 px-3 text-xs text-gray-600">{part.brand_name || '-'}</td>
+                <td class="hidden md:table-cell py-3 px-3 text-xs text-gray-600 max-w-[150px]">
                   <span class="line-clamp-2 leading-tight">{part.warehouse_name || '-'}</span>
                 </td>
-                <td class="py-3 px-2 text-xs text-center">
+                <td class="hidden md:table-cell py-3 px-2 text-xs text-center">
                   <span class="font-medium text-gray-900 whitespace-nowrap">
                     {part.stock !== null && part.stock !== undefined ? part.stock : 0} шт.
                   </span>
                 </td>
-                <td class="py-3 px-2 text-xs text-center">
+                <td class="hidden md:table-cell py-3 px-2 text-xs text-center">
                   <div class="flex flex-col items-center">
                     {#if (part.reserve || 0) > 0}
                       <span class="font-semibold whitespace-nowrap text-orange-700">
@@ -441,7 +441,7 @@
                     {/if}
                   </div>
                 </td>
-                <td class="py-3 px-2 text-center">
+                <td class="hidden md:table-cell py-3 px-2 text-center">
                   {#if (part.available || 0) === 0}
                     <span class="text-xs font-semibold whitespace-nowrap text-red-600">
                       {part.available || 0} шт.
@@ -460,7 +460,7 @@
                     </span>
                   {/if}
                 </td>
-                <td class="py-3 px-3 text-xs font-medium text-gray-900 text-right whitespace-nowrap">
+                <td class="hidden md:table-cell py-3 px-3 text-xs font-medium text-gray-900 text-right whitespace-nowrap">
                   {formatUtils.formatPrice(Number(part.price_opt) || 0)}
                 </td>
               </tr>

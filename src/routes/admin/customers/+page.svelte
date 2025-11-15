@@ -72,20 +72,25 @@
           <thead class="bg-gray-50">
             <tr>
               <th class="text-left py-3 px-4 text-sm font-semibold text-gray-700">Клиент</th>
-              <th class="text-left py-3 px-4 text-sm font-semibold text-gray-700">Телефон</th>
-              <th class="text-left py-3 px-4 text-sm font-semibold text-gray-700">Категория</th>
-              <th class="text-right py-3 px-4 text-sm font-semibold text-gray-700">Заказов</th>
-              <th class="text-right py-3 px-4 text-sm font-semibold text-gray-700">Потрачено</th>
-              <th class="text-right py-3 px-4 text-sm font-semibold text-gray-700">Средний чек</th>
-              <th class="text-left py-3 px-4 text-sm font-semibold text-gray-700">Последний заказ</th>
+              <th class="hidden md:table-cell text-left py-3 px-4 text-sm font-semibold text-gray-700">Телефон</th>
+              <th class="hidden md:table-cell text-left py-3 px-4 text-sm font-semibold text-gray-700">Категория</th>
+              <th class="hidden md:table-cell text-right py-3 px-4 text-sm font-semibold text-gray-700">Заказов</th>
+              <th class="hidden md:table-cell text-right py-3 px-4 text-sm font-semibold text-gray-700">Потрачено</th>
+              <th class="hidden md:table-cell text-right py-3 px-4 text-sm font-semibold text-gray-700">Средний чек</th>
+              <th class="hidden md:table-cell text-left py-3 px-4 text-sm font-semibold text-gray-700">Последний заказ</th>
             </tr>
           </thead>
           <tbody>
             {#each customers as customer}
               <tr class="border-t border-gray-100 hover:bg-gray-50 cursor-pointer" onclick={() => window.location.href = `/admin/customers/${customer.id}`}>
-                <td class="py-3 px-4 text-sm font-medium text-gray-900">{customer.name}</td>
-                <td class="py-3 px-4 text-sm text-gray-600">{customer.phone}</td>
                 <td class="py-3 px-4">
+                  <div class="flex flex-col">
+                    <span class="text-sm font-medium text-gray-900 line-clamp-2">{customer.name}</span>
+                    <span class="md:hidden text-xs text-gray-600 mt-1">{customer.phone}</span>
+                  </div>
+                </td>
+                <td class="hidden md:table-cell py-3 px-4 text-sm text-gray-600">{customer.phone}</td>
+                <td class="hidden md:table-cell py-3 px-4">
                   <span class="px-2 py-1 text-xs font-medium rounded-full {
                     customer.category === 'vip' ? 'bg-purple-100 text-purple-700' :
                     customer.category === 'regular' ? 'bg-blue-100 text-blue-700' :
@@ -95,10 +100,10 @@
                     {customer.category_display || (customer.total_orders === 1 ? 'Новый клиент' : customer.total_orders >= 2 ? 'Постоянный клиент' : 'Новый клиент')}
                   </span>
                 </td>
-                <td class="py-3 px-4 text-sm text-gray-900 text-right">{customer.total_orders || 0}</td>
-                <td class="py-3 px-4 text-sm font-semibold text-gray-900 text-right">{formatUtils.formatPrice(Number(customer.total_spent || 0))}</td>
-                <td class="py-3 px-4 text-sm text-gray-600 text-right">{formatUtils.formatPrice(Number(customer.average_order || 0))}</td>
-                <td class="py-3 px-4 text-sm text-gray-600">
+                <td class="hidden md:table-cell py-3 px-4 text-sm text-gray-900 text-right">{customer.total_orders || 0}</td>
+                <td class="hidden md:table-cell py-3 px-4 text-sm font-semibold text-gray-900 text-right">{formatUtils.formatPrice(Number(customer.total_spent || 0))}</td>
+                <td class="hidden md:table-cell py-3 px-4 text-sm text-gray-600 text-right">{formatUtils.formatPrice(Number(customer.average_order || 0))}</td>
+                <td class="hidden md:table-cell py-3 px-4 text-sm text-gray-600">
                   {customer.last_order_date ? new Date(customer.last_order_date).toLocaleDateString('ru-RU') : '-'}
                 </td>
               </tr>

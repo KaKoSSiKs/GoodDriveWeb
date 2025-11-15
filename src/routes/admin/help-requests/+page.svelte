@@ -229,13 +229,12 @@
         <table class="w-full">
           <thead class="bg-gray-50 border-b border-gray-200">
             <tr>
-              <th class="text-left py-3 px-4 text-xs sm:text-sm font-semibold text-gray-700">ID</th>
-              <th class="text-left py-3 px-4 text-xs sm:text-sm font-semibold text-gray-700">Имя</th>
-              <th class="text-left py-3 px-4 text-xs sm:text-sm font-semibold text-gray-700">Телефон</th>
-              <th class="text-left py-3 px-4 text-xs sm:text-sm font-semibold text-gray-700 hidden md:table-cell">VIN</th>
+              <th class="text-left py-3 px-4 text-xs sm:text-sm font-semibold text-gray-700">Клиент</th>
+              <th class="hidden md:table-cell text-left py-3 px-4 text-xs sm:text-sm font-semibold text-gray-700">Телефон</th>
+              <th class="hidden md:table-cell text-left py-3 px-4 text-xs sm:text-sm font-semibold text-gray-700">VIN</th>
               <th class="text-left py-3 px-4 text-xs sm:text-sm font-semibold text-gray-700">Статус</th>
-              <th class="text-left py-3 px-4 text-xs sm:text-sm font-semibold text-gray-700 hidden lg:table-cell">Дата</th>
-              <th class="text-left py-3 px-4 text-xs sm:text-sm font-semibold text-gray-700">Действия</th>
+              <th class="hidden lg:table-cell text-left py-3 px-4 text-xs sm:text-sm font-semibold text-gray-700">Дата</th>
+              <th class="hidden md:table-cell text-left py-3 px-4 text-xs sm:text-sm font-semibold text-gray-700">Действия</th>
             </tr>
           </thead>
           <tbody>
@@ -248,15 +247,21 @@
                 role="button"
                 aria-label="Открыть запрос #{request.id}"
               >
-                <td class="py-3 px-4 text-xs sm:text-sm text-gray-900 font-mono">#{request.id}</td>
-                <td class="py-3 px-4 text-xs sm:text-sm text-gray-900 font-medium">{request.name}</td>
-                <td class="py-3 px-4 text-xs sm:text-sm text-gray-700">
+                <td class="py-3 px-4">
+                  <div class="flex flex-col">
+                    <span class="text-xs sm:text-sm text-gray-900 font-medium line-clamp-2">{request.name}</span>
+                    <span class="md:hidden text-[11px] text-gray-600 mt-1">
+                      <a href="tel:{request.phone}" class="hover:text-primary-600">{request.phone}</a>
+                    </span>
+                  </div>
+                </td>
+                <td class="hidden md:table-cell py-3 px-4 text-xs sm:text-sm text-gray-700">
                   <a href="tel:{request.phone}" class="hover:text-primary-600">{request.phone}</a>
                 </td>
                 <td class="py-3 px-4 text-xs sm:text-sm text-gray-600 font-mono hidden md:table-cell">
                   {request.vin || '-'}
                 </td>
-                <td class="py-3 px-4 text-xs sm:text-sm">
+                <td class="hidden md:table-cell py-3 px-4 text-xs sm:text-sm">
                   <span class="px-2 py-1 text-xs font-medium rounded-full border {getStatusClass(request.status)}">
                     {getStatusLabel(request.status)}
                   </span>

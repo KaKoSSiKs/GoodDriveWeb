@@ -19,6 +19,7 @@
     "create:admin": "node scripts/create-admin.js",
     "import:catalog": "node scripts/import-catalog-csv.js",
     "import:data": "node scripts/import-data.js",
+    "import:images": "node scripts/import-local-images.js",
     "generate:images": "node scripts/generate-product-images.js"
   },
   "dependencies": {

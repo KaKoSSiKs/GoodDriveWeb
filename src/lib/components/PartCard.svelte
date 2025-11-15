@@ -14,60 +14,77 @@
   let imageError = $state(false);
   const dispatch = createEventDispatcher();
   
-  // Производные значения
-  // Проверяем наличие изображений - поддерживаем разные форматы данных
-  let hasImage = $derived.by(() => {
-    if (!part || !part.images) {
-      return false;
+  function normalizeImageEntry(entry) {
+    if (!entry) return null;
+    if (typeof entry === 'string') {
+      const trimmed = entry.trim();
+      return trimmed ? { rawUrl: trimmed, alt: null } : null;
     }
-    if (!Array.isArray(part.images) || part.images.length === 0) {
-      return false;
+    if (typeof entry !== 'object') {
+      return null;
     }
-    const firstImage = part.images[0];
-    if (!firstImage || typeof firstImage !== 'object') {
-      return false;
+    const rawUrl = entry.image_url || entry.imageUrl || entry.url || entry.image || entry.path;
+    if (!rawUrl || typeof rawUrl !== 'string' || rawUrl.trim() === '') {
+      return null;
     }
-    // Проверяем разные возможные названия полей
-    const imageUrl = firstImage.image_url || firstImage.imageUrl || firstImage.url;
-    const hasValidUrl = !!imageUrl && typeof imageUrl === 'string' && imageUrl.trim() !== '';
-    
-    // Логируем для диагностики
-    if (!hasValidUrl && part.id) {
-      console.warn('PartCard: No valid image URL', {
+    return {
+      rawUrl: rawUrl.trim(),
+      alt: entry.alt_text || entry.altText || entry.description || null,
+      entry
+    };
+  }
+
+  function getImageCandidates(part) {
+    if (!part) return [];
+    const candidates = [];
+
+    // Приоритет: main image, первое изображение из массива, любые дополнительные поля
+    if (part.main_image) candidates.push(part.main_image);
+    if (part.mainImage) candidates.push(part.mainImage);
+    if (Array.isArray(part.images)) {
+      candidates.push(...part.images);
+    }
+    if (part.image) candidates.push({ image: part.image, alt_text: part.title });
+    if (part.image_url) candidates.push({ image_url: part.image_url, alt_text: part.title });
+    if (part.preview_image) candidates.push(part.preview_image);
+
+    return candidates;
+  }
+
+  const firstImageData = $derived.by(() => {
+    const candidates = getImageCandidates(part);
+    for (const candidate of candidates) {
+      const normalized = normalizeImageEntry(candidate);
+      if (normalized) {
+        return normalized;
+      }
+    }
+
+    if (part?.id) {
+      console.warn('PartCard: no valid images found', {
         partId: part.id,
         partTitle: part.title,
-        images: part.images,
-        firstImage,
-        imageUrl
+        images: part?.images,
+        rawCandidates: candidates
       });
     }
-    
-    return hasValidUrl;
+
+    return null;
   });
-  
+
+  let hasImage = $derived(!!firstImageData?.rawUrl);
+
   let imageUrl = $derived.by(() => {
-    if (!hasImage || !part || !part.images || part.images.length === 0) {
+    if (!firstImageData?.rawUrl) {
       return null;
     }
-    const firstImage = part.images[0];
-    if (!firstImage || typeof firstImage !== 'object') {
-      return null;
+    if (firstImageData.rawUrl.startsWith('data:')) {
+      return firstImageData.rawUrl;
     }
-    // Поддерживаем разные форматы данных
-    const url = firstImage.image_url || firstImage.imageUrl || firstImage.url;
-    if (!url || typeof url !== 'string' || url.trim() === '') {
-      return null;
-    }
-    // Для base64 изображений (data URLs) возвращаем как есть
-    if (url.startsWith('data:')) {
-      return url;
-    }
-    // Для остальных используем imageUtils
-    const absoluteUrl = imageUtils.getAbsoluteUrl(url);
-    return absoluteUrl;
+    return imageUtils.getAbsoluteUrl(firstImageData.rawUrl);
   });
   
-  let imageAlt = $derived(part.images?.[0]?.alt_text || part.images?.[0]?.altText || part.title);
+  let imageAlt = $derived(firstImageData?.alt || part.title);
   let brandName = $derived(part.brand?.name || part.brand_name || 'Неизвестный');
   let warehouseName = $derived(part.warehouse?.name || part.warehouse_name || '');
   let isInStock = $derived((Number(part.available) || 0) > 0);
