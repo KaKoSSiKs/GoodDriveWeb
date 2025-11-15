@@ -13,10 +13,10 @@ services:
       --innodb-log-file-size=256M
       --local-infile=1
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-gooddrive_db}
-      MYSQL_USER: ${MYSQL_USER:-gooddrive_user}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-gooddrive_password}
+      MYSQL_ROOT_PASSWORD: FVhVbc_6jdmgCBR2R_Vf
+      MYSQL_DATABASE: gooddrive_db
+      MYSQL_USER: gooddrive_user
+      MYSQL_PASSWORD: o7E-PX1P0t32vs3m-z
     # Порт не пробрасываем наружу - приложение подключается через внутреннюю сеть Docker
     # Раскомментируйте следующую строку, если нужен доступ к MySQL с хоста
     # ports:
@@ -28,7 +28,7 @@ services:
     networks:
       - gooddrive-network
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pFVhVbc_6jdmgCBR2R_Vf"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -48,7 +48,7 @@ services:
     container_name: gooddrive-app
     restart: unless-stopped
     environment:
-      DATABASE_URL: mysql://${MYSQL_USER:-gooddrive_user}:${MYSQL_PASSWORD:-gooddrive_password}@mysql:3306/${MYSQL_DATABASE:-gooddrive_db}
+      DATABASE_URL: mysql://gooddrive_user:o7E-PX1P0t32vs3m-z@mysql:3306/gooddrive_db
       JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
       NODE_ENV: production
       PORT: 3000

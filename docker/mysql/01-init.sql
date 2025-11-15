@@ -12,10 +12,10 @@ USE `gooddrive_db`;
 
 -- Изменяем плагин аутентификации на mysql_native_password
 -- (MySQL 8.0 по умолчанию использует caching_sha2_password, который может вызывать проблемы)
-ALTER USER IF EXISTS 'gooddrive_user'@'%' IDENTIFIED WITH mysql_native_password BY 'gooddrive_password';
+ALTER USER IF EXISTS 'gooddrive_user'@'%' IDENTIFIED WITH mysql_native_password BY 'o7E-PX1P0t32vs3m-z';
 
 -- Создаем пользователя (если не существует)
-CREATE USER IF NOT EXISTS 'gooddrive_user'@'%' IDENTIFIED WITH mysql_native_password BY 'gooddrive_password';
+CREATE USER IF NOT EXISTS 'gooddrive_user'@'%' IDENTIFIED WITH mysql_native_password BY 'o7E-PX1P0t32vs3m-z';
 
 -- Предоставляем права
 GRANT ALL PRIVILEGES ON `gooddrive_db`.* TO 'gooddrive_user'@'%';
