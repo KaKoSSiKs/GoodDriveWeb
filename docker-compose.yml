@@ -55,6 +55,8 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+    ports:
+      - "3000:3000"
     networks:
       - gooddrive-network
     volumes:
@@ -88,34 +90,12 @@ services:
       retries: 3
       start_period: 60s
 
-  # Nginx Reverse Proxy
-  nginx:
-    image: nginx:alpine
-    container_name: gooddrive-nginx
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./docker/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
-      - certbot_data:/var/www/certbot
-      - certbot_etc:/etc/letsencrypt
-    depends_on:
-      - app
-    networks:
-      - gooddrive-network
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+  # Nginx убран из docker-compose - используем внешний nginx на хосте
+  # Настройте внешний nginx для проксирования на localhost:3000
+  # См. документацию: documentation/DEPLOYMENT.md
 
 volumes:
   mysql_data:
-    driver: local
-  certbot_data:
-    driver: local
-  certbot_etc:
     driver: local
 
 networks:

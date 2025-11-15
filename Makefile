@@ -13,7 +13,7 @@ up: ## Запустить все сервисы (production)
 	docker compose up -d
 	@echo "✓ Сервисы запущены"
 	@echo "  - App: http://localhost:3000"
-	@echo "  - Nginx: http://localhost:80"
+	@echo "  - Настройте внешний nginx для проксирования (см. documentation/NGINX_HOST_SETUP.md)"
 
 down: ## Остановить все сервисы
 	docker compose down
