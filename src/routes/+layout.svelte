@@ -9,6 +9,7 @@
   import { browser } from '$app/environment';
   import { onMount } from 'svelte';
   import { initAnalytics } from '$lib/utils/analytics.js';
+  import { PUBLIC_YM_COUNTER_ID, PUBLIC_GA4_ID } from '$env/static/public';
   
   let { children } = $props();
   const isAdminRoute = $derived($page.url.pathname.startsWith('/admin'));
@@ -23,11 +24,9 @@
         try {
           const consent = JSON.parse(savedConsent);
           if (consent.analytics) {
-            const YM_COUNTER_ID = '';
-            const GA4_ID = '';
-            
-            if (YM_COUNTER_ID || GA4_ID) {
-              initAnalytics(YM_COUNTER_ID, GA4_ID);
+            // Используем переменные окружения из $env/static/public
+            if (PUBLIC_YM_COUNTER_ID || PUBLIC_GA4_ID) {
+              initAnalytics(PUBLIC_YM_COUNTER_ID || '', PUBLIC_GA4_ID || '');
             }
           }
         } catch (e) {
