@@ -185,14 +185,18 @@
       if (filters.warehouse) {
         params.warehouse = filters.warehouse;
       }
-      if (filters.price_min && filters.price_min.trim()) {
-        const priceMin = parseFloat(filters.price_min);
+      // Цена может приходить как строка или как число — обрабатываем безопасно
+      const rawPriceMin = filters.price_min;
+      const rawPriceMax = filters.price_max;
+
+      if (rawPriceMin !== '' && rawPriceMin !== null && rawPriceMin !== undefined) {
+        const priceMin = typeof rawPriceMin === 'string' ? parseFloat(rawPriceMin) : Number(rawPriceMin);
         if (!isNaN(priceMin) && priceMin >= 0) {
           params.price_min = priceMin;
         }
       }
-      if (filters.price_max && filters.price_max.trim()) {
-        const priceMax = parseFloat(filters.price_max);
+      if (rawPriceMax !== '' && rawPriceMax !== null && rawPriceMax !== undefined) {
+        const priceMax = typeof rawPriceMax === 'string' ? parseFloat(rawPriceMax) : Number(rawPriceMax);
         if (!isNaN(priceMax) && priceMax >= 0) {
           params.price_max = priceMax;
         }
@@ -220,6 +224,10 @@
       // Удаляем page_size из cleanParams, если он там есть, чтобы использовать наш фиксированный размер
       delete cleanParams.page_size;
       delete cleanParams.page; // Также удаляем page, так как мы всегда используем page: 1
+      // Пробрасываем выбранную сортировку на backend
+      if (filters.ordering) {
+        cleanParams.ordering = filters.ordering;
+      }
       
       console.log('Загрузка товаров с параметрами:', cleanParams);
       const loadData = async (extraParams = {}) => {
@@ -293,57 +301,14 @@
         );
       }
       
-      // Сортируем товары:
-      // 1. Сначала популярные (из топ 100) в наличии
-      // 2. Затем популярные без наличия  
-      // 3. Затем не популярные в наличии (рандомные)
-      // 4. Затем не популярные без наличия
-      // Внутри каждой группы сортируем по доступному количеству (по убыванию)
-      
-      // Разделяем на группы
-      const popularInStock = [];
-      const popularOutOfStock = [];
-      const randomInStock = [];
-      const randomOutOfStock = [];
-      
-      allParts.forEach(part => {
-        const isPopular = top100PartIds.has(part.id);
-        const available = Number(part.available) || 0;
-        const inStock = available > 0;
-        
-        if (isPopular && inStock) {
-          popularInStock.push(part);
-        } else if (isPopular && !inStock) {
-          popularOutOfStock.push(part);
-        } else if (!isPopular && inStock) {
-          randomInStock.push(part);
-        } else {
-          randomOutOfStock.push(part);
-        }
-      });
-      
-      // Сортируем каждую группу по available (по убыванию)
-      popularInStock.sort((a, b) => (Number(b.available) || 0) - (Number(a.available) || 0));
-      popularOutOfStock.sort((a, b) => (Number(b.available) || 0) - (Number(a.available) || 0));
-      
-      // Перемешиваем не популярные товары в наличии (рандомные)
-      randomInStock.sort(() => Math.random() - 0.5);
-      randomOutOfStock.sort((a, b) => (Number(b.available) || 0) - (Number(a.available) || 0));
-      
-      // Объединяем все группы так, чтобы товары с наличием были сверху,
-      // а товары "под заказ" (available <= 0) всегда внизу
-      const inStockParts = [
-        ...popularInStock,
-        ...randomInStock
-      ];
-      const outOfStockParts = [
-        ...popularOutOfStock,
-        ...randomOutOfStock
-      ];
+      // Поддержка сортировки: backend отдаёт в выбранном порядке,
+      // здесь лишь гарантируем, что товары без наличия идут внизу,
+      // сохраняя относительный порядок из результата API.
+      const inStockParts = allParts.filter(p => (Number(p.available) || 0) > 0);
+      const outOfStockParts = allParts.filter(p => (Number(p.available) || 0) <= 0);
 
       let sortedParts = [...inStockParts, ...outOfStockParts].map(part => ({
         ...part,
-        isPopular: top100PartIds.has(part.id),
         available: Number(part.available) || 0
       }));
       
@@ -375,45 +340,22 @@
           }
           
           if (fallbackParts.length > 0) {
-            sortedParts = fallbackParts
-              .map(part => ({
-                ...part,
-                available: Number(part.available) || 0,
-                matchScore: calculateMatchScore(part, tokens)
-              }))
-              .sort((a, b) => {
-                const inStockA = a.available > 0;
-                const inStockB = b.available > 0;
-
-                // Сначала все товары в наличии, затем без наличия
-                if (inStockA !== inStockB) {
-                  return inStockB - inStockA;
-                }
-
-                // Затем сортируем по релевантности
-                if (b.matchScore !== a.matchScore) {
-                  return b.matchScore - a.matchScore;
-                }
-
-                // И в конце по количеству в наличии (по убыванию)
-                return b.available - a.available;
-              });
+            // Ранжируем по релевантности, но сохраняем правило "в наличии сверху"
+            const withScores = fallbackParts.map(part => ({
+              ...part,
+              available: Number(part.available) || 0,
+              matchScore: calculateMatchScore(part, tokens)
+            }));
+            const fallbackInStock = withScores.filter(p => p.available > 0).sort((a, b) => b.matchScore - a.matchScore);
+            const fallbackOutOfStock = withScores.filter(p => p.available <= 0).sort((a, b) => b.matchScore - a.matchScore);
+            sortedParts = [...fallbackInStock, ...fallbackOutOfStock];
           }
         }
 
         if (!sortedParts || sortedParts.length === 0) {
           // Если даже fallback ничего не дал, показываем все товары,
-          // но снова следим за тем, чтобы "нет в наличии" были внизу
-          const allInStock = [
-            ...popularInStock,
-            ...randomInStock
-          ];
-          const allOutOfStock = [
-            ...popularOutOfStock,
-            ...randomOutOfStock
-          ];
-
-          sortedParts = [...allInStock, ...allOutOfStock].map(part => ({
+          // при этом "нет в наличии" внизу без дополнительной сортировки
+          sortedParts = [...inStockParts, ...outOfStockParts].map(part => ({
             ...part,
             available: Number(part.available) || 0
           }));
