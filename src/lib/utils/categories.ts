@@ -25,7 +25,13 @@ export const CATEGORIES: CategoryMapping[] = [
       'генератор', 'alternator',
       'стартер', 'starter',
       'аккумулятор', 'battery',
-      'лампочка', 'лампа', 'bulb', 'light'
+			'лампочка', 'лампа', 'bulb', 'light',
+			'фара', 'фары', 'headlight', 'headlamp',
+			'противотуманка', 'противотуманные', 'fog light', 'foglamp',
+			'фонарь', 'фонари', 'taillight', 'stop light', 'стоп-сигнал', 'габарит',
+			'катушка зажигания', 'катушка', 'ignition coil',
+			'свеча зажигания', 'свечи зажигания', 'spark plug',
+			'магнитола', 'аудиосистема', 'stereo', 'radio'
     ],
     description: 'Датчики, модули, провода'
   },

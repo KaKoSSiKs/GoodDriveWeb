@@ -52,12 +52,42 @@ const CONFIG = {
   // Retry настройки для загрузки изображений
   IMAGE_DOWNLOAD_RETRIES: 3,
   IMAGE_DOWNLOAD_TIMEOUT: 10000, // 10 секунд
+  
+  // Управление загрузкой изображений (по умолчанию выключено для оффлайн-окружений)
+  DOWNLOAD_IMAGES: process.env.DOWNLOAD_IMAGES === 'true',
 };
+
+const PLACEHOLDER_FILENAME = 'placeholder.svg';
+const PLACEHOLDER_PUBLIC_PATH = `/images/parts/${PLACEHOLDER_FILENAME}`;
+const PLACEHOLDER_FILE_PATH = path.join(CONFIG.IMAGES_DIR, PLACEHOLDER_FILENAME);
 
 // Создаем папку для изображений если её нет
 if (!fs.existsSync(CONFIG.IMAGES_DIR)) {
   fs.mkdirSync(CONFIG.IMAGES_DIR, { recursive: true });
   console.log(`📁 Создана папка для изображений: ${CONFIG.IMAGES_DIR}`);
+}
+
+function ensurePlaceholderAsset() {
+  if (!fs.existsSync(PLACEHOLDER_FILE_PATH)) {
+    const svgContent = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" viewBox="0 0 600 600">
+  <rect width="600" height="600" fill="#1E3A8A"/>
+  <rect x="20" y="20" width="560" height="560" rx="24" fill="#EEF2FF" />
+  <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="Arial, sans-serif" font-size="48" fill="#1E3A8A">
+    GOODDRIVE
+  </text>
+  <text x="50%" y="60%" dominant-baseline="middle" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" fill="#1E3A8A">
+    Автозапчасти
+  </text>
+</svg>`;
+    fs.writeFileSync(PLACEHOLDER_FILE_PATH, svgContent, 'utf-8');
+  }
+}
+
+ensurePlaceholderAsset();
+
+if (!CONFIG.DOWNLOAD_IMAGES) {
+  console.log('🖼️  Загрузка удалённых изображений отключена. Будет использован локальный placeholder.\n');
 }
 
 /**
@@ -207,6 +237,17 @@ async function downloadWithRetry(url, filepath, retries = CONFIG.IMAGE_DOWNLOAD_
  */
 async function savePartImage(part, imageUrl, index = 0) {
   try {
+    if (!CONFIG.DOWNLOAD_IMAGES) {
+      return await prisma.partImage.create({
+        data: {
+          partId: part.id,
+          imageUrl: PLACEHOLDER_PUBLIC_PATH,
+          altText: part.title,
+          orderIndex: index
+        }
+      }).then(() => PLACEHOLDER_PUBLIC_PATH);
+    }
+    
     // Генерируем имя файла
     const safeTitle = part.title
       .replace(/[^\w\s-]/g, '')
@@ -240,14 +281,40 @@ async function savePartImage(part, imageUrl, index = 0) {
         if (fs.existsSync(filepath)) {
           fs.unlinkSync(filepath);
         }
-        return null;
+        // Используем локальный placeholder
+        await prisma.partImage.create({
+          data: {
+            partId: part.id,
+            imageUrl: PLACEHOLDER_PUBLIC_PATH,
+            altText: part.title,
+            orderIndex: index
+          }
+        });
+        return PLACEHOLDER_PUBLIC_PATH;
       }
     }
     
-    return null;
+    // Если загрузка не удалась, сохраняем placeholder
+    await prisma.partImage.create({
+      data: {
+        partId: part.id,
+        imageUrl: PLACEHOLDER_PUBLIC_PATH,
+        altText: part.title,
+        orderIndex: index
+      }
+    });
+    return PLACEHOLDER_PUBLIC_PATH;
   } catch (error) {
     console.error(`    ❌ Ошибка сохранения изображения: ${error.message}`);
-    return null;
+    await prisma.partImage.create({
+      data: {
+        partId: part.id,
+        imageUrl: PLACEHOLDER_PUBLIC_PATH,
+        altText: part.title,
+        orderIndex: index
+      }
+    });
+    return PLACEHOLDER_PUBLIC_PATH;
   }
 }
 

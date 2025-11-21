@@ -57,6 +57,28 @@
       isUpdating = false;
     }
   }
+
+  // Удаление заказа
+  async function handleDeleteOrder() {
+    if (!orderDetails) return;
+
+    const confirmed = confirm('Вы уверены, что хотите удалить этот заказ? Это действие нельзя отменить.');
+    if (!confirmed) return;
+
+    try {
+      isUpdating = true;
+      await ordersApi.deleteOrder(orderDetails.id);
+
+      if (onUpdate) onUpdate();
+      alert('Заказ успешно удалён');
+      handleClose();
+    } catch (error) {
+      console.error('Ошибка удаления заказа:', error);
+      alert('Ошибка удаления заказа');
+    } finally {
+      isUpdating = false;
+    }
+  }
   
   // Закрытие модалки
   function handleClose() {
@@ -120,7 +142,7 @@
           </div>
           
           <!-- Кнопки печати -->
-          <div class="flex space-x-2">
+          <div class="flex flex-wrap gap-2">
             <a 
               href={`/api/orders/${orderDetails.id}/invoice`}
               target="_blank"
@@ -141,6 +163,16 @@
               </svg>
               Чек
             </a>
+            <button
+              onclick={handleDeleteOrder}
+              class="btn-outline text-sm flex items-center text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300 ml-auto"
+              disabled={isUpdating}
+            >
+              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              Удалить заказ
+            </button>
           </div>
         </div>
         

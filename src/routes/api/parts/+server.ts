@@ -7,8 +7,63 @@ import { partsQuerySchema } from '$lib/server/validators/parts.validator';
 import { createApiHandler, handleError, createErrorResponse, ValidationError } from '$lib/server/error-handler';
 import { logger } from '$lib/server/logger';
 import type { Prisma } from '@prisma/client';
-import { CATEGORIES, getCategoryKeywords } from '$lib/utils/categories';
+import { CATEGORIES, getCategoryKeywords, detectCategory } from '$lib/utils/categories';
 import { getLocalImagesForPart } from '$lib/server/images';
+
+// Простая карта синонимов для поиска (бренды / марки авто, рус/лат)
+const SEARCH_SYNONYMS: Record<string, string[]> = {
+	// ВАЗ / Lada
+	'ваз': ['vaz', 'lada'],
+	'vaz': ['ваз', 'lada'],
+	'lada': ['ваз', 'vaz'],
+	// Мерседес
+	'мерседес': ['mercedes', 'mercedes-benz', 'mb'],
+	'mercedes': ['мерседес', 'mercedes-benz', 'mb'],
+	'mercedes-benz': ['мерседес', 'mercedes', 'mb'],
+	// БМВ
+	'бмв': ['bmw'],
+	'bmw': ['бмв'],
+	// Ауди
+	'ауди': ['audi'],
+	'audi': ['ауди'],
+	// Фольксваген
+	'фольксваген': ['vw', 'volkswagen'],
+	'vw': ['фольксваген', 'volkswagen'],
+	'volkswagen': ['фольксваген', 'vw'],
+	// Ниссан
+	'ниссан': ['nissan'],
+	'nissan': ['ниссан'],
+	// Тойота
+	'тойота': ['toyota'],
+	'toyota': ['тойота'],
+	// Мицубиси/Митсубиси
+	'митсубиси': ['мицубиси', 'mitsubishi'],
+	'мицубиси': ['митсубиси', 'mitsubishi'],
+	'mitsubishi': ['митсубиси', 'мицубиси'],
+	// Шкода / Octavia
+	'шкода': ['skoda', 'octavia'],
+	'skoda': ['шкода', 'octavia'],
+	'октавия': ['octavia', 'skoda', 'шкода'],
+	'octavia': ['октавия', 'skoda', 'шкода']
+};
+
+function normalizeToken(token: string): string {
+	return token.trim().toLowerCase().replace(/\s+/g, ' ').replace(/ё/g, 'е');
+}
+
+function getSearchVariants(rawToken: string): string[] {
+	const base = normalizeToken(rawToken);
+	if (!base) return [];
+	const variants = new Set<string>();
+	variants.add(base);
+
+	const directSyn = SEARCH_SYNONYMS[base];
+	if (directSyn && directSyn.length) {
+		directSyn.forEach((s) => variants.add(normalizeToken(s)));
+	}
+
+	return Array.from(variants);
+}
 
 // Валидация и обработка запроса
 const handler: RequestHandler = async ({ url }) => {
@@ -71,54 +126,48 @@ const handler: RequestHandler = async ({ url }) => {
 	// Build where clause
 	const where: Prisma.PartWhereInput = { isActive: true };
 	
-	// Фильтрация по категории (приоритет над обычным поиском)
+	// Фильтрация по категории (по полю category в БД)
 	if (category) {
-		const categoryKeywords = getCategoryKeywords(category);
-		if (categoryKeywords.length > 0) {
-			// Используем все ключевые слова категории для поиска
-			// Товар должен содержать хотя бы одно из ключевых слов категории
-			const searchConditions = categoryKeywords.map(keyword => ({
-				OR: [
-					{ title: { contains: keyword } },
-					{ originalNumber: { contains: keyword } },
-					{ manufacturerNumber: { contains: keyword } },
-					{ description: { contains: keyword } }
-				]
-			}));
-			
-			if (where.OR) {
-				where.OR = [...where.OR, ...searchConditions];
-			} else {
-				where.OR = searchConditions;
-			}
-		}
+		where.category = category;
 	}
 	
 	// Поиск (поддержка нескольких слов через пробел или +)
-	// Умная фильтрация по категориям - определяет категорию по ключевым словам
-	if (search && !category) {
+	// Ищем по названию, артикулам, описанию и бренду, независимо от выбранной категории
+	if (search) {
 		// Заменяем + на пробелы и разбиваем на слова
 		const searchTerms = search.replace(/\+/g, ' ').trim().split(/\s+/).filter(term => term.length > 0);
 		
 		if (searchTerms.length > 0) {
-			// Для каждого ключевого слова ищем в любом из полей (title, description, номера)
-			// Между словами используем AND - товар должен содержать ВСЕ ключевые слова
-			// Каждое слово может быть в любом из полей (OR между полями)
-			const searchConditions = searchTerms.map(term => ({
-				OR: [
-					{ title: { contains: term } },
-					{ originalNumber: { contains: term } },
-					{ manufacturerNumber: { contains: term } },
-					{ description: { contains: term } }
-				]
-			}));
+			// Для каждого ключевого слова и его синонимов ищем в любом из полей
+			// Для одного слова: OR между полями title / номера / description / brand и синонимами
+			// Между словами используем OR (товар может содержать любое из слов), что ближе к ожидаемому поведению поиска
+			const combinedOr: Prisma.PartWhereInput[] = [];
+
+			for (const term of searchTerms) {
+				const variants = getSearchVariants(term);
+
+				const orConditions: Prisma.PartWhereInput[] = [];
+				for (const v of variants) {
+					orConditions.push(
+						{ title: { contains: v } },
+						{ originalNumber: { contains: v } },
+						{ manufacturerNumber: { contains: v } },
+						{ description: { contains: v } },
+						{ brand: { name: { contains: v } } }
+					);
+				}
+
+				combinedOr.push(...orConditions);
+			}
 			
-			// Используем AND между словами - товар должен содержать все слова
-			// Если уже есть AND условия, объединяем их
-			if (where.AND) {
-				where.AND = [...where.AND, ...searchConditions];
-			} else {
-				where.AND = searchConditions;
+			// Все поисковые слова объединяем через OR,
+			// чтобы находить товары по любому из введённых слов/синонимов
+			if (combinedOr.length > 0) {
+				if (where.OR) {
+					where.OR = [...where.OR, ...combinedOr];
+				} else {
+					where.OR = combinedOr;
+				}
 			}
 		}
 	}
@@ -285,6 +334,7 @@ const handler: RequestHandler = async ({ url }) => {
 			stock: part.stock ?? 0,
 			reserve: part.reserve ?? 0,
 			available: part.available ?? 0,
+			category: part.category ?? 'other',
 			price_opt: part.priceOpt.toFixed(2),
 			cost_price: part.costPrice.toFixed(2),
 			description: part.description,

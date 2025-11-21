@@ -21,7 +21,7 @@
   
   // Производные значения
   const hasActiveFilters = $derived(
-    filters.search || filters.brand || filters.warehouse || 
+    filters.search || filters.category || filters.brand || filters.warehouse || 
     filters.price_min || filters.price_max || filters.in_stock
   );
   
@@ -153,6 +153,22 @@
   
   <!-- Фильтры -->
   <div class="space-y-4 md:space-y-6 {isExpanded ? '' : 'hidden md:block'}">
+    <!-- Категория -->
+    <div>
+      <label for="category-select" class="block text-sm font-medium text-secondary-700 mb-2">Категория</label>
+      <select
+        id="category-select"
+        class="input"
+        value={filters.category || ''}
+        onchange={(e) => handleInputChange('category', e.target.value || '')}
+      >
+        <option value="">Все категории</option>
+        <option value="electronics">Электроника</option>
+        <option value="engine">Двигатель</option>
+        <option value="suspension">Подвеска</option>
+        <option value="brakes">Тормоза</option>
+      </select>
+    </div>
     <!-- Поиск -->
     <div>
       <label for="search-input" class="block text-sm font-medium text-secondary-700 mb-2">Поиск</label>

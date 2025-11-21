@@ -11,7 +11,7 @@
   import { generateCollectionJsonLd, generateBreadcrumbJsonLd } from '$lib/utils/seo.js';
   
   // Реактивное состояние
-  let parts = $state([]);
+let parts = $state([]);
   let brands = $state([]);
   let warehouses = $state([]);
   let isLoading = $state(true);
@@ -143,6 +143,8 @@
     return score;
   }
   
+  const PAGE_SIZE = 12;
+
   async function loadParts() {
     if (!referencesLoaded) {
       await loadReferences();
@@ -229,56 +231,18 @@
         cleanParams.ordering = filters.ordering;
       }
       
-      console.log('Загрузка товаров с параметрами:', cleanParams);
-      const loadData = async (extraParams = {}) => {
-        return partsApi.getParts({
-          page: 1,
-          page_size: 100, // Используем максимальное допустимое значение
-          ...cleanParams,
-          ...extraParams
-        });
-      };
+      console.log('Загрузка товаров с параметрами:', { ...cleanParams, page: currentPage, page_size: PAGE_SIZE });
 
-      const data = await loadData();
-      console.log('Получены данные от API:', { 
-        hasData: !!data, 
-        dataType: typeof data,
-        dataKeys: data ? Object.keys(data) : [],
-        hasResults: !!(data?.results), 
-        resultsCount: data?.results?.length || 0,
-        totalCount: data?.count || 0,
-        fullData: data
+      const response = await partsApi.getParts({
+        ...cleanParams,
+        page: currentPage,
+        page_size: PAGE_SIZE
       });
-      
-      // Обрабатываем различные форматы ответа
-      let allParts = [];
-      if (data) {
-        if (Array.isArray(data)) {
-          // Если ответ - массив напрямую
-          allParts = data;
-        } else if (Array.isArray(data.results)) {
-          // Стандартный формат с results
-          allParts = data.results;
-        } else if (Array.isArray(data.data)) {
-          // Альтернативный формат с data
-          allParts = data.data;
-        } else if (data.results && typeof data.results === 'object' && !Array.isArray(data.results)) {
-          // Если results это объект, пытаемся извлечь массив
-          console.warn('Неожиданный формат results:', data.results);
-          allParts = [];
-        }
-      }
-      
-      if (!Array.isArray(allParts)) {
-        console.error('Ошибка: не удалось извлечь массив товаров из ответа:', {
-          data,
-          allParts,
-          allPartsType: typeof allParts
-        });
-        allParts = [];
-      }
-      
-      console.log('Извлечено товаров:', allParts.length);
+
+      let allParts = Array.isArray(response?.results) ? response.results : [];
+      const fetchedCount = response?.count ?? allParts.length ?? 0;
+
+      console.log('Извлечено товаров:', allParts.length, 'Всего по запросу:', fetchedCount);
       
       // Логируем первые несколько товаров для проверки структуры изображений
       if (allParts.length > 0) {
@@ -325,21 +289,20 @@
               fallbackBrandParam = brandIds.join(',');
             }
           }
-          
-          const fallbackData = await loadData({
+
+          const fallbackParams = {
+            ...cleanParams,
             brand: fallbackBrandParam || cleanParams.brand || undefined,
-            search: undefined
-          });
-          
-          if (fallbackData) {
-            if (Array.isArray(fallbackData.results)) {
-              fallbackParts = fallbackData.results;
-            } else if (Array.isArray(fallbackData.data)) {
-              fallbackParts = fallbackData.data;
-            }
-          }
-          
-          if (fallbackParts.length > 0) {
+            page: 1,
+            page_size: PAGE_SIZE
+          };
+          delete fallbackParams.search;
+
+          const fallbackResponse = await partsApi.getParts(fallbackParams);
+          fallbackParts = Array.isArray(fallbackResponse?.results) ? fallbackResponse.results : [];
+        }
+        
+        if (fallbackParts.length > 0) {
             // Ранжируем по релевантности, но сохраняем правило "в наличии сверху"
             const withScores = fallbackParts.map(part => ({
               ...part,
@@ -350,7 +313,6 @@
             const fallbackOutOfStock = withScores.filter(p => p.available <= 0).sort((a, b) => b.matchScore - a.matchScore);
             sortedParts = [...fallbackInStock, ...fallbackOutOfStock];
           }
-        }
 
         if (!sortedParts || sortedParts.length === 0) {
           // Если даже fallback ничего не дал, показываем все товары,
@@ -362,24 +324,17 @@
         }
       }
       
-      // Пагинация на клиенте
-      const startIndex = (currentPage - 1) * 12;
-      const endIndex = startIndex + 12;
-      const paginatedParts = sortedParts.slice(startIndex, endIndex);
-
       if (currentPage === 1) {
-        parts = paginatedParts;
+        parts = sortedParts;
       } else {
-        parts = [...parts, ...paginatedParts];
+        parts = [...parts, ...sortedParts];
       }
 
-      totalPages = Math.ceil(sortedParts.length / 12);
-      totalCount = sortedParts.length;
+      totalPages = Math.ceil((fetchedCount || sortedParts.length) / PAGE_SIZE);
+      totalCount = fetchedCount || sortedParts.length;
       
       console.log('Товары обработаны:', {
-        allPartsCount: allParts.length,
         sortedPartsCount: sortedParts.length,
-        paginatedPartsCount: paginatedParts.length,
         currentPage,
         totalPages,
         totalCount
@@ -479,6 +434,7 @@
   function handleClearFilters() {
     filters = {
       search: '',
+      category: '',
       brand: '',
       warehouse: '',
       price_min: '',
@@ -533,6 +489,7 @@
   // Функция для обновления фильтров из URL
   function updateFiltersFromUrl() {
     const urlSearch = ($page.url.searchParams.get('search') || '').replace(/\+/g, ' ');
+    const urlCategory = $page.url.searchParams.get('category') || '';
     const urlBrand = $page.url.searchParams.get('brand') || '';
     const urlWarehouse = $page.url.searchParams.get('warehouse') || '';
     const urlPriceMin = $page.url.searchParams.get('price_min') || '';
@@ -544,6 +501,7 @@
     // Обновляем фильтры
     filters = {
       search: urlSearch,
+      category: urlCategory,
       brand: urlBrand,
       warehouse: urlWarehouse,
       price_min: urlPriceMin,

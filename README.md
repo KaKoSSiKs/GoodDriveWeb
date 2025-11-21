@@ -37,6 +37,17 @@ make dev
 docker compose -f docker-compose.dev.yml up -d
 ```
 
+### Подсказки адресов (DaData + OpenStreetMap)
+
+По умолчанию сервис использует [DaData](https://dadata.ru/) для подсказок и проверки адресов. Добавьте ключи в `.env`, чтобы получить максимально точные результаты:
+
+```env
+DADATA_API_TOKEN=your_dadata_token   # используется для подсказок
+DADATA_SECRET=your_dadata_secret     # используется для юридической проверки адреса
+```
+
+Если токены не заданы или сервис DaData временно недоступен, приложение автоматически переключается на публичный API OpenStreetMap (Nominatim). В этом режиме подсказки и проверка адресов продолжают работать, но точность может быть ниже, поэтому рекомендуется настроить DaData при первой возможности.
+
 ## 📁 Структура проекта
 
 ```
@@ -54,7 +65,6 @@ GoodDriveWeb/
 ├── static/                   # Статические файлы
 ├── prisma/                   # Prisma схема и миграции
 ├── scripts/                  # Утилиты и скрипты
-├── documentation/            # Документация
 ├── docker-compose.yml        # Production конфигурация
 ├── docker-compose.dev.yml    # Development конфигурация
 ├── .env.example              # Пример переменных окружения
@@ -73,12 +83,6 @@ make status    # Статус контейнеров
 make dev       # Запустить в dev режиме
 make prod      # Запустить в production режиме
 ```
-
-## 📚 Документация
-
-- [DEPLOYMENT.md](./documentation/DEPLOYMENT.md) - Руководство по развертыванию
-- [QUICK_START.md](./documentation/QUICK_START.md) - Быстрый старт для разработки
-- [ENV_SETUP.md](./documentation/ENV_SETUP.md) - Настройка переменных окружения
 
 ## 🏗️ Архитектура
 

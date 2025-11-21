@@ -4,6 +4,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { prisma } from '$lib/server/db';
 import type { PaginatedResponse, ApiResponse, CheckoutData } from '$lib/types';
+import { validateAddress } from '$lib/server/services/address';
 
 export const GET: RequestHandler = async ({ url, locals }) => {
 	try {
@@ -173,6 +174,35 @@ export const POST: RequestHandler = async ({ request }) => {
 				success: false,
 				error: errors.join(', ')
 			}, { status: 400 });
+		}
+
+		// Проверяем корректность адреса
+		const validationResult = await validateAddress(data.deliveryAddress);
+		if (!validationResult.isValid) {
+			return json<ApiResponse>(
+				{
+					success: false,
+					error: validationResult.warning || 'Адрес не найден. Уточните данные'
+				},
+				{ status: 400 }
+			);
+		}
+
+		if (validationResult.result) {
+			data.deliveryAddress = validationResult.result;
+		}
+		const cityFromData =
+			(validationResult.data?.city_with_type as string) ||
+			(validationResult.data?.settlement_with_type as string) ||
+			(validationResult.data?.area_with_type as string) ||
+			(validationResult.data?.region_with_type as string);
+
+		if (cityFromData) {
+			data.deliveryCity = cityFromData;
+		}
+
+		if (validationResult.data?.postal_code) {
+			data.deliveryPostalCode = validationResult.data.postal_code;
 		}
 
 		// Generate order number

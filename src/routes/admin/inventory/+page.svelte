@@ -1,10 +1,13 @@
 <script>
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { partsApi, formatUtils, brandsApi, warehousesApi, stockApi, API_BASE_URL } from '$lib/utils/api.js';
   import ProductEditModal from '$lib/components/admin/ProductEditModal.svelte';
   import AddProductModal from '$lib/components/admin/AddProductModal.svelte';
   
   let parts = $state([]);
+  let allParts = $state([]); // полный отсортированный список
+  let visibleCount = $state(100);
+  let isLoadingMore = $state(false);
   let brands = $state([]);
   let warehouses = $state([]);
   let isLoading = $state(true);
@@ -31,28 +34,44 @@
   async function loadParts() {
     try {
       isLoading = true;
-      const params = {
-        ordering: '-created_at', // Сначала получаем все товары
-        page_size: 100 // Максимальное допустимое значение
+
+      const baseParams = {
+        ordering: '-created_at',
+        page_size: 1000
       };
-      
-      if (filters.search) params.search = filters.search;
-      if (filters.brand) params.brand = filters.brand;
-      if (filters.warehouse) params.warehouse = filters.warehouse;
-      
-      let response;
-      if (filters.stock_filter === 'low') {
-        response = await partsApi.getLowStockParts(params);
-      } else if (filters.stock_filter === 'out') {
-        params.available_max = 0;
-        response = await partsApi.getParts(params);
-      } else {
-        response = await partsApi.getParts(params);
+
+      if (filters.search) baseParams.search = filters.search;
+      if (filters.brand) baseParams.brand = filters.brand;
+      if (filters.warehouse) baseParams.warehouse = filters.warehouse;
+
+      // Загружаем все страницы по 1000 штук, чтобы корректно отсортировать по резерву
+      let allResults = [];
+      let page = 1;
+      let hasMore = true;
+
+      while (hasMore) {
+        const params = { ...baseParams, page };
+
+        let response;
+        if (filters.stock_filter === 'low') {
+          response = await partsApi.getLowStockParts(params);
+        } else if (filters.stock_filter === 'out') {
+          params.available_max = 0;
+          response = await partsApi.getParts(params);
+        } else {
+          response = await partsApi.getParts(params);
+        }
+
+        const pageResults = response.results || [];
+        allResults = allResults.concat(pageResults);
+
+        hasMore = Boolean(response.next);
+        page += 1;
       }
       
       // Сортируем товары: сначала товары с резервом (reserve > 0), затем остальные
       // Внутри каждой группы сортируем по резерву (по убыванию), затем по доступному количеству
-      const sortedParts = (response.results || []).map(part => {
+      const sortedParts = (allResults || []).map(part => {
         // Явное преобразование в числа с проверкой
         const stock = part.stock !== null && part.stock !== undefined ? Number(part.stock) : 0;
         const reserve = part.reserve !== null && part.reserve !== undefined ? Number(part.reserve) : 0;
@@ -83,8 +102,10 @@
         // Если оба не в резерве, сортируем по доступному количеству (по убыванию)
         return bAvailable - aAvailable;
       });
-      
-      parts = sortedParts;
+
+      allParts = sortedParts;
+      visibleCount = Math.min(100, allParts.length);
+      parts = allParts.slice(0, visibleCount);
       
       // Отладочное логирование (удалить в production)
       if (sortedParts.length > 0) {
@@ -115,6 +136,28 @@
       warehouses = warehousesData.results || warehousesData;
     } catch (error) {
       console.error('Ошибка загрузки справочников:', error);
+    }
+  }
+
+  function loadMoreParts() {
+    if (isLoading || isLoadingMore) return;
+    if (!allParts || allParts.length === 0) return;
+    if (visibleCount >= allParts.length) return;
+
+    isLoadingMore = true;
+    const nextCount = Math.min(visibleCount + 100, allParts.length);
+    visibleCount = nextCount;
+    parts = allParts.slice(0, visibleCount);
+    isLoadingMore = false;
+  }
+
+  function handleScroll() {
+    if (typeof window === 'undefined') return;
+    const scrollPosition = window.innerHeight + window.scrollY;
+    const threshold = document.body.offsetHeight - 200;
+
+    if (scrollPosition >= threshold) {
+      loadMoreParts();
     }
   }
   
@@ -220,11 +263,26 @@
     }
   }
   
+  let refreshIntervalId;
+
   onMount(() => {
     loadReferences();
     loadParts();
+
+    // Автообновление списка остатков каждые 5 минут
+    refreshIntervalId = setInterval(() => {
+      loadParts();
+    }, 300000);
+  });
+
+  onDestroy(() => {
+    if (refreshIntervalId) {
+      clearInterval(refreshIntervalId);
+    }
   });
 </script>
+
+<svelte:window on:scroll={handleScroll} />
 
 <svelte:head>
   <title>Остатки склада - Admin</title>
@@ -280,10 +338,10 @@
           />
         </svg>
         <span class="hidden sm:inline">
-          Обновить склад по заказам
+          Обновить
         </span>
         <span class="sm:hidden">
-          Обновить склад
+          Обновить
         </span>
       </button>
     </div>

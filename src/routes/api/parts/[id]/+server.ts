@@ -74,6 +74,7 @@ export const GET: RequestHandler = async ({ params }) => {
 			stock: part.stock,
 			reserve: part.reserve,
 			available: part.available,
+			category: part.category ?? 'other',
 			price_opt: part.priceOpt.toFixed(2),
 			cost_price: part.costPrice.toFixed(2),
 			description: part.description,
@@ -154,6 +155,9 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 		}
 		if (validatedData.quantity !== undefined) {
 			updateData.quantity = validatedData.quantity;
+		}
+		if (validatedData.category !== undefined) {
+			updateData.category = validatedData.category;
 		}
 		if (validatedData.stock !== undefined) {
 			updateData.stock = validatedData.stock;

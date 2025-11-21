@@ -21,7 +21,7 @@
   const organizationJsonLd = generateOrganizationJsonLd();
 
   // Реактивное состояние
-  let featuredParts = $state([]);
+let featuredParts = $state([]);
   let loading = $state(true);
   let stats = $state({
     totalParts: 0,
@@ -66,6 +66,8 @@
   }
 
   // Загрузка данных
+  const MAX_PAGE_SIZE = 100;
+
   async function loadData() {
     try {
       loading = true;
@@ -86,25 +88,26 @@
       
       // Загружаем товары в наличии, отсортированные по наличию (по убыванию)
       let allParts = [];
+      let totalPartsCount = 0;
       try {
-        const partsResponse = await partsApi.getParts({
-          page: 1,
-          page_size: 100,
+        const response = await partsApi.getParts({
           in_stock: true,
-          ordering: '-available' // Сначала товары с большим количеством
+          ordering: '-available',
+          page_size: MAX_PAGE_SIZE
         });
-        allParts = partsResponse.results || [];
+        allParts = response.results || [];
+        totalPartsCount = response.count ?? allParts.length ?? 0;
         console.log('Загружено товаров в наличии:', allParts.length);
       } catch (error) {
         console.error('Ошибка загрузки товаров:', error);
-        // Fallback: загружаем все товары и фильтруем на клиенте
         try {
-          const partsResponse = await partsApi.getParts({
-            page: 1,
-            page_size: 100,
-            ordering: '-available'
+          const response = await partsApi.getParts({
+            ordering: '-available',
+            page_size: MAX_PAGE_SIZE
           });
-          allParts = (partsResponse.results || []).filter(p => (Number(p.available) || 0) > 0);
+          const all = response.results || [];
+          allParts = all.filter(p => (Number(p.available) || 0) > 0);
+          totalPartsCount = response.count ?? allParts.length ?? 0;
           console.log('Загружено всех товаров (отфильтровано на клиенте):', allParts.length);
         } catch (fallbackError) {
           console.error('Ошибка загрузки всех товаров:', fallbackError);
@@ -145,10 +148,14 @@
       console.log('Отображается товаров:', featuredParts.length);
 
       // Загружаем статистику товаров
-      const partsResponse = await partsApi.getParts({
-        page_size: 1
-      });
-      stats.totalParts = partsResponse.count;
+      if (totalPartsCount) {
+        stats.totalParts = totalPartsCount;
+      } else {
+        const partsResponse = await partsApi.getParts({
+          page_size: 1
+        });
+        stats.totalParts = partsResponse.count;
+      }
 
       // Загружаем статистику брендов
       const brandsResponse = await brandsApi.getBrands({

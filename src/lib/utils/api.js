@@ -665,5 +665,21 @@ export const helpRequestsApi = {
   }
 };
 
+// API для работы с адресами
+export const addressApi = {
+  async suggest(query, options = {}) {
+    return api.get('/api/addresses/suggest', {
+      query,
+      type: options.type,
+      city: options.city,
+      city_id: options.cityId
+    });
+  },
+
+  async validate(address) {
+    return api.post('/api/addresses/validate', { address });
+  }
+};
+
 export default api;
 

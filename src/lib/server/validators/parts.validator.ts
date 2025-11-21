@@ -4,7 +4,7 @@ import { z } from 'zod';
 // Валидация query параметров для GET /api/parts
 export const partsQuerySchema = z.object({
 	page: z.coerce.number().int().min(1).max(1000).default(1),
-	page_size: z.coerce.number().int().min(1).max(100).default(20),
+	page_size: z.coerce.number().int().min(1).max(1000).default(20),
 	search: z.string().max(200).optional(),
 	category: z.enum(['electronics', 'engine', 'suspension', 'brakes']).optional(),
 	// Поддержка множественных брендов через запятую: "1,2,3"
@@ -68,6 +68,7 @@ export const createPartSchema = z.object({
 	available: z.number().int().nonnegative().default(0),
 	price_opt: z.number().nonnegative(),
 	cost_price: z.number().nonnegative().default(0),
+	category: z.enum(['electronics', 'engine', 'suspension', 'brakes', 'other']).default('other'),
 	description: z.string().optional(),
 	images: z
 		.array(

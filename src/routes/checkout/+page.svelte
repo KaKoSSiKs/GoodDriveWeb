@@ -1,6 +1,6 @@
 <script>
-  import { onMount } from 'svelte';
-  import { cartUtils, ordersApi, formatUtils, validationUtils } from '$lib/utils/api.js';
+  import { onMount, onDestroy } from 'svelte';
+  import { cartUtils, ordersApi, formatUtils, validationUtils, addressApi } from '$lib/utils/api.js';
   
   // Реактивное состояние
   let cart = $state([]);
@@ -23,6 +23,21 @@
   
   // Ошибки валидации
   let errors = $state({});
+
+  // Подсказки городов и адресов
+  let citySuggestions = $state([]);
+  let isCityLoading = $state(false);
+  let cityDropdownOpen = $state(false);
+  let selectedCity = $state(null);
+  let cityDebounceId = $state(null);
+  let cityHelperMessage = $state('');
+  
+  let addressSuggestions = $state([]);
+  let isAddressLoading = $state(false);
+  let addressDropdownOpen = $state(false);
+  let selectedAddress = $state(null);
+  let addressDebounceId = $state(null);
+  let addressHelperMessage = $state('');
   
   // Производные значения
   const totalItems = $derived(cart.reduce((total, item) => total + item.quantity, 0));
@@ -33,6 +48,235 @@
   function loadCart() {
     cart = cartUtils.getCart();
   }
+
+  function resetAddressSelection() {
+    selectedAddress = null;
+  }
+  
+  function resetCitySelection() {
+    selectedCity = null;
+    cityHelperMessage = '';
+  }
+
+  async function loadCitySuggestions(query) {
+    if (!query || query.trim().length < 2) {
+      citySuggestions = [];
+      cityDropdownOpen = false;
+      return;
+    }
+    
+    isCityLoading = true;
+    try {
+      const response = await addressApi.suggest(query.trim(), { type: 'city' });
+      if (response?.success) {
+        citySuggestions = response.data || [];
+        cityDropdownOpen = citySuggestions.length > 0;
+        cityHelperMessage = citySuggestions.length === 0 ? 'Город не найден, попробуйте уточнить' : '';
+      } else {
+        citySuggestions = [];
+        cityDropdownOpen = false;
+        cityHelperMessage = response?.error || 'Не удалось получить подсказки городов';
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки подсказок города:', error);
+      citySuggestions = [];
+      cityDropdownOpen = false;
+      cityHelperMessage = 'Не удалось получить подсказки городов';
+    } finally {
+      isCityLoading = false;
+    }
+  }
+  
+  function handleCityInput(event) {
+    const value = event.target.value;
+    form.delivery_city = value;
+    cityHelperMessage = '';
+    resetCitySelection();
+    resetAddressSelection();
+    form.delivery_address = '';
+    addressSuggestions = [];
+    addressDropdownOpen = false;
+    
+    if (cityDebounceId) {
+      clearTimeout(cityDebounceId);
+    }
+    
+    if (!value.trim() || value.trim().length < 2) {
+      citySuggestions = [];
+      cityDropdownOpen = false;
+      return;
+    }
+    
+    cityDebounceId = setTimeout(() => {
+      loadCitySuggestions(value);
+    }, 300);
+  }
+  
+  function handleCityFocus() {
+    if (citySuggestions.length > 0) {
+      cityDropdownOpen = true;
+    }
+  }
+  
+  function handleCityBlur() {
+    setTimeout(() => {
+      cityDropdownOpen = false;
+    }, 200);
+  }
+  
+  function selectCity(suggestion) {
+    selectedCity = suggestion;
+    const cityName =
+      suggestion.data?.city_with_type ||
+      suggestion.data?.settlement_with_type ||
+      suggestion.value;
+    form.delivery_city = cityName;
+    
+    citySuggestions = [];
+    cityDropdownOpen = false;
+    cityHelperMessage = 'Город подтверждён';
+    
+    // Сбрасываем подтверждённый адрес, нужно выбрать заново
+    resetAddressSelection();
+    form.delivery_address = '';
+    addressHelperMessage = 'Выберите адрес после подтверждения города';
+  }
+  
+  async function loadAddressSuggestions(query) {
+    if (!query || query.trim().length < 3) {
+      addressSuggestions = [];
+      addressDropdownOpen = false;
+      return;
+    }
+    
+    const cityContext =
+      selectedCity?.data?.city_with_type ||
+      selectedCity?.data?.settlement_with_type ||
+      form.delivery_city;
+    const cityFiasId =
+      selectedCity?.data?.city_fias_id ||
+      selectedCity?.data?.settlement_fias_id ||
+      selectedCity?.data?.fias_id ||
+      null;
+    
+    isAddressLoading = true;
+    try {
+      const response = await addressApi.suggest(query.trim(), {
+        type: 'address',
+        city: cityContext,
+        cityId: cityFiasId
+      });
+      if (response?.success) {
+        addressSuggestions = response.data || [];
+        addressHelperMessage =
+          addressSuggestions.length === 0
+            ? (selectedCity ? 'Адрес не найден, попробуйте уточнить' : 'Выберите город, чтобы увидеть подсказки адреса')
+            : '';
+        addressDropdownOpen = addressSuggestions.length > 0;
+      } else {
+        addressSuggestions = [];
+        addressDropdownOpen = false;
+        addressHelperMessage = response?.error || 'Не удалось получить подсказки адресов';
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки подсказок адреса:', error);
+      addressSuggestions = [];
+      addressDropdownOpen = false;
+      addressHelperMessage = 'Не удалось получить подсказки адресов';
+    } finally {
+      isAddressLoading = false;
+    }
+  }
+  
+  function handleAddressInput(event) {
+    const value = event.target.value;
+    form.delivery_address = value;
+    addressHelperMessage = '';
+    
+    if (
+      selectedAddress &&
+      value.trim() !== (selectedAddress?.unrestricted_value || selectedAddress?.value || '').trim()
+    ) {
+      resetAddressSelection();
+    }
+    
+    if (addressDebounceId) {
+      clearTimeout(addressDebounceId);
+    }
+    
+    if (!value.trim() || value.trim().length < 3) {
+      addressSuggestions = [];
+      addressDropdownOpen = false;
+      return;
+    }
+    
+    if (!form.delivery_city.trim()) {
+      addressHelperMessage = 'Сначала укажите город доставки';
+      addressSuggestions = [];
+      addressDropdownOpen = false;
+      return;
+    }
+    
+    addressDebounceId = setTimeout(() => {
+      loadAddressSuggestions(value);
+    }, 300);
+  }
+  
+  function handleAddressFocus() {
+    if (addressSuggestions.length > 0) {
+      addressDropdownOpen = true;
+    }
+  }
+  
+  function handleAddressBlur() {
+    setTimeout(() => {
+      addressDropdownOpen = false;
+    }, 200);
+  }
+  
+  function selectAddress(suggestion) {
+    selectedAddress = suggestion;
+    const fullAddress = suggestion.unrestricted_value || suggestion.value;
+    form.delivery_address = fullAddress;
+    
+    const city =
+      suggestion.data?.city_with_type ||
+      suggestion.data?.settlement_with_type ||
+      suggestion.data?.area_with_type ||
+      suggestion.data?.region_with_type;
+    if (city) {
+      form.delivery_city = city;
+    }
+
+    if (!selectedCity && (suggestion.data?.city_with_type || suggestion.data?.settlement_with_type)) {
+      selectedCity = {
+        value: city,
+        data: {
+          city_with_type: suggestion.data?.city_with_type || suggestion.data?.settlement_with_type,
+          city_fias_id: suggestion.data?.city_fias_id || suggestion.data?.settlement_fias_id
+        }
+      };
+      cityHelperMessage = 'Город определён по адресу';
+    }
+    
+    if (suggestion.data?.postal_code) {
+      form.delivery_postal_code = suggestion.data.postal_code;
+    }
+    
+    addressSuggestions = [];
+    addressDropdownOpen = false;
+    errors.delivery_address && delete errors.delivery_address;
+    errors = { ...errors };
+  }
+
+  onDestroy(() => {
+    if (cityDebounceId) {
+      clearTimeout(cityDebounceId);
+    }
+    if (addressDebounceId) {
+      clearTimeout(addressDebounceId);
+    }
+  });
   
   // Валидация формы
   function validateForm() {
@@ -71,12 +315,24 @@
     if (!form.delivery_address.trim()) {
       errors.delivery_address = 'Введите адрес доставки';
       isValid = false;
+    } else {
+      const selectedValue = (selectedAddress?.unrestricted_value || selectedAddress?.value || '').trim();
+      if (!selectedAddress || form.delivery_address.trim() !== selectedValue) {
+        errors.delivery_address = 'Выберите адрес из подсказок, чтобы подтвердить его существование';
+        isValid = false;
+      }
     }
     
     // Город
     if (!form.delivery_city.trim()) {
       errors.delivery_city = 'Введите город';
       isValid = false;
+    } else {
+      const selectedCityValue = (selectedCity?.value || '').trim();
+      if (!selectedCity || form.delivery_city.trim() !== selectedCityValue) {
+        errors.delivery_city = 'Выберите город из подсказок, чтобы подтвердить его';
+        isValid = false;
+      }
     }
     
     // Согласие на обработку ПД
@@ -338,32 +594,140 @@
                   <label for="delivery_city" class="block text-sm font-medium text-neutral-700 mb-2">
                     Город <span class="text-red-500">*</span>
                   </label>
-                  <input
-                    type="text"
-                    id="delivery_city"
-                    bind:value={form.delivery_city}
-                    class="input {errors.delivery_city ? 'border-red-500' : ''}"
-                    placeholder="Введите город"
-                  />
-                  {#if errors.delivery_city}
-                    <p class="text-red-500 text-sm mt-1">{errors.delivery_city}</p>
-                  {/if}
+                  <div class="relative">
+                    <input
+                      type="text"
+                      id="delivery_city"
+                      bind:value={form.delivery_city}
+                      oninput={handleCityInput}
+                      onfocus={handleCityFocus}
+                      onblur={handleCityBlur}
+                      class="input pr-10 {errors.delivery_city ? 'border-red-500' : ''}"
+                      placeholder="Начните вводить город"
+                      autocomplete="address-level2"
+                    />
+                    {#if isCityLoading}
+                      <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                        <svg class="animate-spin h-4 w-4 text-primary-500" fill="none" viewBox="0 0 24 24">
+                          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                      </div>
+                    {/if}
+                    
+                    {#if selectedCity}
+                      <p class="text-green-600 text-sm mt-1 flex items-center">
+                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        Город подтверждён
+                      </p>
+                    {:else if cityHelperMessage}
+                      <p class="text-sm text-neutral-500 mt-1">{cityHelperMessage}</p>
+                    {:else}
+                      <p class="text-sm text-neutral-500 mt-1">Выберите город из подсказок для точного адреса</p>
+                    {/if}
+                    
+                    {#if errors.delivery_city}
+                      <p class="text-red-500 text-sm mt-1">{errors.delivery_city}</p>
+                    {/if}
+                    
+                    {#if cityDropdownOpen}
+                      <div class="absolute z-50 w-full mt-1 bg-white border border-neutral-200 rounded-lg shadow-lg max-h-72 overflow-y-auto">
+                        {#if citySuggestions.length === 0 && isCityLoading}
+                          <div class="px-4 py-3 text-sm text-neutral-500">Загрузка подсказок...</div>
+                        {:else if citySuggestions.length === 0}
+                          <div class="px-4 py-3 text-sm text-neutral-500">
+                            {cityHelperMessage || 'Город не найден. Попробуйте уточнить запрос'}
+                          </div>
+                        {:else}
+                          {#each citySuggestions as suggestion}
+                            <button
+                              type="button"
+                              onclick={() => selectCity(suggestion)}
+                              class="w-full px-4 py-3 text-left hover:bg-primary-50 border-b border-neutral-100 last:border-b-0"
+                            >
+                              <p class="font-medium text-neutral-900">{suggestion.value}</p>
+                              {#if suggestion.data?.region_with_type}
+                                <p class="text-xs text-neutral-500">{suggestion.data.region_with_type}</p>
+                              {/if}
+                            </button>
+                          {/each}
+                        {/if}
+                      </div>
+                    {/if}
+                  </div>
                 </div>
                 
                 <div>
                   <label for="delivery_address" class="block text-sm font-medium text-neutral-700 mb-2">
                     Адрес <span class="text-red-500">*</span>
                   </label>
-                  <textarea
-                    id="delivery_address"
-                    bind:value={form.delivery_address}
-                    class="input {errors.delivery_address ? 'border-red-500' : ''}"
-                    rows="3"
-                    placeholder="Введите полный адрес доставки"
-                  ></textarea>
-                  {#if errors.delivery_address}
-                    <p class="text-red-500 text-sm mt-1">{errors.delivery_address}</p>
-                  {/if}
+                  <div class="relative">
+                    <input
+                      type="text"
+                      id="delivery_address"
+                      bind:value={form.delivery_address}
+                      oninput={handleAddressInput}
+                      onfocus={handleAddressFocus}
+                      onblur={handleAddressBlur}
+                      class="input pr-10 {errors.delivery_address ? 'border-red-500' : ''}"
+                      placeholder="Начните вводить адрес (Россия)"
+                      autocomplete="street-address"
+                      aria-autocomplete="list"
+                      aria-expanded={addressDropdownOpen}
+                    />
+                    {#if isAddressLoading}
+                      <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                        <svg class="animate-spin h-4 w-4 text-primary-500" fill="none" viewBox="0 0 24 24">
+                          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                      </div>
+                    {/if}
+                    
+                    {#if selectedAddress}
+                      <p class="text-green-600 text-sm mt-1 flex items-center">
+                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        Адрес подтверждён по базе ФИАС
+                      </p>
+                    {:else if addressHelperMessage}
+                      <p class="text-sm text-neutral-500 mt-1">{addressHelperMessage}</p>
+                    {:else}
+                      <p class="text-sm text-neutral-500 mt-1">Выберите подсказку, чтобы подтвердить адрес</p>
+                    {/if}
+                    
+                    {#if errors.delivery_address}
+                      <p class="text-red-500 text-sm mt-1">{errors.delivery_address}</p>
+                    {/if}
+                    
+                    {#if addressDropdownOpen}
+                      <div class="absolute z-50 w-full mt-1 bg-white border border-neutral-200 rounded-lg shadow-lg max-h-72 overflow-y-auto">
+                        {#if addressSuggestions.length === 0 && isAddressLoading}
+                          <div class="px-4 py-3 text-sm text-neutral-500">Загрузка подсказок...</div>
+                        {:else if addressSuggestions.length === 0}
+                          <div class="px-4 py-3 text-sm text-neutral-500">
+                            {addressHelperMessage || 'Адрес не найден. Попробуйте уточнить запрос'}
+                          </div>
+                        {:else}
+                          {#each addressSuggestions as suggestion}
+                            <button
+                              type="button"
+                              onclick={() => selectAddress(suggestion)}
+                              class="w-full px-4 py-3 text-left hover:bg-primary-50 border-b border-neutral-100 last:border-b-0"
+                            >
+                              <p class="font-medium text-neutral-900">{suggestion.value}</p>
+                              <p class="text-xs text-neutral-500">
+                                {(suggestion.data?.city_with_type || suggestion.data?.settlement_with_type || suggestion.data?.area_with_type || suggestion.data?.region_with_type) ?? 'Россия'}
+                              </p>
+                            </button>
+                          {/each}
+                        {/if}
+                      </div>
+                    {/if}
+                  </div>
                 </div>
                 
                 <div>

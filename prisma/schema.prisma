@@ -72,6 +72,7 @@ model Part {
   stock              Int      @default(0) @db.UnsignedInt
   reserve            Int      @default(0) @db.UnsignedInt
   available          Int      @default(0) @db.UnsignedInt
+  category           String   @default("other") @db.VarChar(50)
   priceOpt           Decimal  @map("price_opt") @db.Decimal(10, 2)
   costPrice          Decimal  @default(0) @map("cost_price") @db.Decimal(10, 2)
   description        String?  @db.Text
