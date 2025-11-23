@@ -62,6 +62,7 @@ services:
     volumes:
       - ./static:/app/static:ro
       - ./docker/mysql/data.csv:/app/docker/mysql/data.csv:ro
+      - ./db_of_catalog.csv:/app/db_of_catalog.csv:ro
       - ./scripts:/app/scripts:ro
     command: >
       sh -c "
@@ -79,6 +80,14 @@ services:
         echo '📦 Импорт данных из CSV...' &&
         node scripts/import-data.js || echo '⚠️ Импорт данных пропущен (данные уже есть или ошибка)' &&
         echo '✅ Импорт завершен' &&
+        echo '' &&
+        echo '🏷️  Настройка категорий товаров...' &&
+        node scripts/backfill-part-categories.js || echo '⚠️ Backfill категорий пропущен (ошибка или не требуется)' &&
+        echo '✅ Категории настроены' &&
+        echo '' &&
+        echo '👤 Создание администратора...' &&
+        node scripts/create-admin.js || echo '⚠️ Создание админа пропущено (ошибка или уже существует)' &&
+        echo '✅ Администратор готов' &&
         echo '' &&
         echo '🚀 Запуск приложения...' &&
         node build/index.js

@@ -20,7 +20,10 @@
     "import:catalog": "node scripts/import-catalog-csv.js",
     "import:data": "node scripts/import-data.js",
     "import:images": "node scripts/import-local-images.js",
-    "generate:images": "node scripts/generate-product-images.js"
+    "generate:images": "node scripts/generate-product-images.js",
+    "backfill:categories": "node scripts/backfill-part-categories.js",
+    "deploy:setup": "npm run prisma:generate && npm run prisma:deploy && npm run import:data && npm run backfill:categories && npm run create:admin",
+    "deploy:docker": "docker-compose up -d --build"
   },
   "dependencies": {
     "@prisma/client": "^5.7.0",
