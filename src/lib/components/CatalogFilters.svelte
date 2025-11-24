@@ -17,10 +17,22 @@
   let searchTimeout = null;
   let searchError = $state('');
   
-  const hasActiveFilters = $derived(
-    filters.search || filters.category || filters.brand || filters.warehouse || 
-    filters.price_min || filters.price_max || filters.in_stock
-  );
+const hasActiveFilters = $derived(
+  filters.search || filters.category || filters.brand || filters.warehouse || 
+  filters.price_min || filters.price_max || filters.in_stock
+);
+
+const activeFilterCount = $derived(
+  ['search', 'category', 'brand', 'warehouse', 'price_min', 'price_max']
+    .filter((key) => !!filters[key])
+    .length + (filters.in_stock ? 1 : 0)
+);
+
+function getFilterLabel(count) {
+  if (count === 1) return 'фильтр';
+  if (count >= 2 && count <= 4) return 'фильтра';
+  return 'фильтров';
+}
   
   function debounceSearch(value) {
     if (searchTimeout) {
@@ -122,27 +134,39 @@
 
 <div class="space-y-8">
   <!-- Header -->
-  <div class="flex items-center justify-between">
-    <h2 class="text-lg font-bold text-gray-900">Фильтры</h2>
-    {#if hasActiveFilters}
-      <button 
-        onclick={onClearFilters}
-        class="text-sm text-red-500 hover:text-red-600 font-medium transition-colors"
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div class="flex items-center gap-2">
+      <h2 class="text-lg font-bold text-gray-900">Фильтры</h2>
+      {#if hasActiveFilters}
+        <span class="md:hidden inline-flex items-center text-xs font-medium text-gray-600 bg-gray-100 rounded-full px-2 py-0.5">
+          {activeFilterCount} {getFilterLabel(activeFilterCount)}
+        </span>
+      {/if}
+    </div>
+    <div class="flex items-center gap-2 ml-auto">
+      {#if hasActiveFilters}
+        <button 
+          onclick={onClearFilters}
+          class="text-sm text-red-500 hover:text-red-600 font-medium transition-colors"
+        >
+          Сбросить
+        </button>
+      {/if}
+      <button
+        onclick={toggleExpanded}
+        class="md:hidden inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"
+        aria-expanded={isExpanded}
+        aria-controls="catalog-filters-panel"
       >
-        Сбросить
+        {isExpanded ? 'Скрыть' : 'Показать'}
+        <svg class="w-4 h-4 transition-transform {isExpanded ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+        </svg>
       </button>
-    {/if}
-    <button
-      onclick={toggleExpanded}
-      class="md:hidden p-2 text-gray-500 hover:text-gray-900"
-    >
-      <svg class="w-5 h-5 transition-transform {isExpanded ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-      </svg>
-    </button>
+    </div>
   </div>
   
-  <div class="space-y-8 {isExpanded ? '' : 'hidden md:block'}">
+  <div id="catalog-filters-panel" class="space-y-8 {isExpanded ? '' : 'hidden md:block'}">
     <!-- Search -->
     <div>
       <form onsubmit={handleSearchSubmit}>

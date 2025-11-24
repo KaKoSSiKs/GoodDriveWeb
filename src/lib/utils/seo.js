@@ -54,7 +54,7 @@ export function generateOrganizationJsonLd() {
   // В browser это будет доступно через $env/static/public
   const baseUrl = typeof window !== 'undefined' 
     ? window.location.origin 
-    : (process.env.PUBLIC_SITE_URL || 'https://gooddrive.com');
+    : (process.env.PUBLIC_SITE_URL || 'https://nikitintex.ru');
   
   return {
     "@context": "https://schema.org",

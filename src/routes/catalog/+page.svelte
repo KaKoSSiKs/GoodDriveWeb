@@ -69,13 +69,15 @@
   const hasParts = $derived(parts.length > 0);
   
   const seoData = $derived({
-    title: filters.search ? `Поиск "${filters.search}"` : 'Каталог автозапчастей',
+    title: filters.search 
+      ? `Поиск "${filters.search}" - Автозапчасти Челябинск | GoodDrive` 
+      : 'Каталог автозапчастей Челябинск - GoodDrive | Интернет-магазин автозапчастей',
     description: filters.search 
-      ? `Результаты поиска "${filters.search}" в каталоге автозапчастей GoodDrive. Найдено ${totalCount} товаров.`
-      : 'Каталог автозапчастей GoodDrive. Широкий ассортимент деталей от ведущих производителей.',
+      ? `Результаты поиска "${filters.search}" в каталоге автозапчастей GoodDrive в Челябинске. Найдено ${totalCount} товаров. Доставка по Челябинску и России.`
+      : 'Каталог автозапчастей в Челябинске от GoodDrive. Широкий ассортимент автозапчастей для всех марок автомобилей. Фильтры по бренду, цене, наличию. Доставка по Челябинску и России.',
     keywords: filters.search 
-      ? `поиск, ${filters.search}, автозапчасти, каталог`
-      : 'каталог, автозапчасти, фильтры, бренды, цены',
+      ? `поиск, ${filters.search}, автозапчасти челябинск, автозапчасти, каталог челябинск`
+      : 'каталог автозапчастей челябинск, автозапчасти челябинск, автозапчасти, каталог, фильтры, бренды, цены, доставка челябинск',
     image: parts[0]?.images?.[0]?.image_url || '/images/catalog-og.jpg',
     type: 'website'
   });
@@ -441,11 +443,11 @@
   jsonLd={collectionJsonLd}
 />
 
-<div class="container-custom py-8 md:py-12">
+<div class="container-custom py-6 sm:py-10">
   <!-- Header & Title -->
   <div class="mb-8">
     <h1 class="text-2xl md:text-4xl font-bold text-gray-900 mb-2 tracking-tight">
-      {filters.search ? `Результаты поиска: "${filters.search}"` : 'Каталог запчастей'}
+      {filters.search ? `Результаты поиска: "${filters.search}"` : 'Каталог автозапчастей в Челябинске'}
     </h1>
     <p class="text-gray-500">
       {#if isLoading}
@@ -456,10 +458,10 @@
     </p>
   </div>
 
-  <div class="flex flex-col lg:flex-row gap-8">
+  <div class="flex flex-col lg:flex-row gap-6 lg:gap-10">
     <!-- Filters Sidebar -->
-    <aside class="lg:w-72 flex-shrink-0">
-      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sticky top-32">
+    <aside class="w-full lg:w-72 flex-shrink-0">
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 sm:p-6 lg:sticky lg:top-32">
         <CatalogFilters
           {brands}
           {warehouses}
@@ -473,13 +475,13 @@
     <!-- Products Grid -->
     <main class="flex-1 min-w-0">
       {#if isLoading}
-        <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5 md:gap-6">
           {#each Array(9) as _}
             <div class="h-[380px] bg-white rounded-2xl animate-pulse border border-gray-100"></div>
           {/each}
         </div>
       {:else if hasParts}
-        <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-6 mb-10">
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5 md:gap-6 mb-10">
           {#each parts as part}
             <PartCard {part} isPopular={part.isPopular || false} on:addToCart={handleAddToCart} />
           {/each}

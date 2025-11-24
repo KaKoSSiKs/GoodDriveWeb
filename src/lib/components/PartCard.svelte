@@ -157,14 +157,14 @@
   </a>
   
   <!-- Content Area -->
-  <div class="p-5 flex flex-col flex-grow">
+  <div class="px-4 py-4 sm:p-5 flex flex-col flex-grow">
     <!-- Brand & Meta -->
-    <div class="flex items-center justify-between mb-2">
-      <span class="text-xs font-bold text-gray-900 uppercase tracking-wide bg-gray-100 px-2 py-1 rounded-md">
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+      <span class="text-[11px] sm:text-xs font-bold text-gray-900 uppercase tracking-wide bg-gray-100 px-2 py-1 rounded-md max-w-full truncate">
         {brandName}
       </span>
       {#if isInStock}
-        <span class="flex items-center text-xs font-medium text-green-600">
+        <span class="flex items-center text-[11px] sm:text-xs font-medium text-green-600 whitespace-nowrap">
           <span class="w-1.5 h-1.5 bg-green-500 rounded-full mr-1.5 animate-pulse"></span>
           В наличии
         </span>
@@ -172,24 +172,24 @@
     </div>
     
     <!-- Title -->
-    <h3 class="font-medium text-gray-900 mb-1 line-clamp-2 min-h-[2.5rem] group-hover:text-gray-600 transition-colors text-sm leading-snug">
+    <h3 class="font-medium text-gray-900 mb-1 line-clamp-2 min-h-[2.75rem] group-hover:text-gray-600 transition-colors text-sm sm:text-base leading-snug break-words">
       <a href="/product/{part.id}">
         {part.title || 'Запчасть без названия'}
       </a>
     </h3>
     
     <!-- Part Numbers -->
-    <div class="text-xs text-gray-500 mb-4 space-y-0.5 font-mono">
+    <div class="text-xs text-gray-500 mb-4 space-y-0.5 font-mono break-all">
       {#if part.original_number}
         <p class="truncate opacity-80">OEM: {part.original_number}</p>
       {/if}
     </div>
     
     <!-- Footer: Price & Action -->
-    <div class="mt-auto flex items-end justify-between gap-4">
+    <div class="mt-auto flex flex-wrap items-end justify-between gap-4">
       <div>
         <p class="text-xs text-gray-500 mb-0.5">Цена</p>
-        <p class="text-lg font-bold text-gray-900 leading-none">
+        <p class="text-xl font-bold text-gray-900 leading-none">
           {part.price_opt ? formatUtils.formatPrice(Number(part.price_opt)) : 'По запросу'}
         </p>
       </div>

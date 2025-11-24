@@ -20,7 +20,7 @@ export const GET: RequestHandler = async () => {
 	try {
 		// Используем environment variable для base URL
 		// Используем dynamic env для поддержки отсутствующего значения при сборке
-		const baseUrl = env.PUBLIC_SITE_URL || 'http://localhost:3000';
+		const baseUrl = env.PUBLIC_SITE_URL || 'https://nikitintex.ru';
 		const today = new Date().toISOString().split('T')[0];
 
 		// Параллельные запросы для оптимизации

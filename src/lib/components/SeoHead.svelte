@@ -9,6 +9,7 @@
   } from '$lib/utils/seo.js';
   
   // Пропсы компонента (Svelte 5 синтаксис)
+  // Поддерживаем как отдельные props, так и data объект
   let {
     title = '',
     description = '',
@@ -17,17 +18,28 @@
     type = 'website',
     product = null,
     breadcrumbs = [],
-    jsonLd = null
+    jsonLd = null,
+    data = null // Для обратной совместимости
   } = $props();
+  
+  // Если передан data объект, используем его значения
+  const finalTitle = $derived(data?.title || title);
+  const finalDescription = $derived(data?.description || description);
+  const finalKeywords = $derived(data?.keywords || keywords);
+  const finalImage = $derived(data?.image || image);
+  const finalType = $derived(data?.type || type);
+  const finalProduct = $derived(data?.product || product);
+  const finalBreadcrumbs = $derived(data?.breadcrumbs || breadcrumbs);
+  const finalJsonLd = $derived(data?.jsonLd || jsonLd);
   
   // Реактивное состояние
   let metaTags = $state([]);
   let canonicalUrl = $state('');
   
   // Производные значения
-  let pageTitle = $derived(generatePageTitle(title));
-  let pageDescription = $derived(description || generatePageDescription(type, { product }));
-  let pageKeywords = $derived(keywords || generateKeywords(type, { product }));
+  let pageTitle = $derived(generatePageTitle(finalTitle));
+  let pageDescription = $derived(finalDescription || generatePageDescription(finalType, { product: finalProduct }));
+  let pageKeywords = $derived(finalKeywords || generateKeywords(finalType, { product: finalProduct }));
   
   // Обновление метатегов при изменении пропсов
   $effect(() => {
@@ -35,7 +47,7 @@
     // В SSR это будет доступно через $env/static/public
     const baseUrl = typeof window !== 'undefined' 
       ? window.location.origin 
-      : (import.meta.env.PUBLIC_SITE_URL || 'https://gooddrive.com');
+      : (import.meta.env.PUBLIC_SITE_URL || 'https://nikitintex.ru');
     const currentUrl = `${baseUrl}${$page.url.pathname}`;
     
     canonicalUrl = generateCanonicalUrl(baseUrl, $page.url.pathname);
@@ -44,10 +56,10 @@
       title: pageTitle,
       description: pageDescription,
       keywords: pageKeywords,
-      image: image,
+      image: finalImage,
       url: currentUrl,
-      type: type,
-      product: product
+      type: finalType,
+      product: finalProduct
     });
   });
 </script>
@@ -84,28 +96,35 @@
   <meta name="ICBM" content="55.187617, 61.424401" />
   
   <!-- Yandex Specific -->
-  <meta name="yandex-verification" content="REPLACE_WITH_YANDEX_CODE" />
+  <!-- Yandex verification: используем env переменную или значение из файла yandex_256f12d3b93a3ebb.html -->
+  <meta name="yandex-verification" content={import.meta.env.PUBLIC_YANDEX_VERIFICATION || '256f12d3b93a3ebb'} />
   <meta name="yandex" content="index, follow, noyaca" />
   
   <!-- Google Specific -->
-  <meta name="google-site-verification" content="REPLACE_WITH_GOOGLE_CODE" />
+  {#if import.meta.env.PUBLIC_GOOGLE_VERIFICATION}
+    <meta name="google-site-verification" content={import.meta.env.PUBLIC_GOOGLE_VERIFICATION} />
+  {/if}
   <meta name="googlebot" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
   
-  <!-- Mobile App Links (если будет мобильное приложение) -->
-  <meta name="apple-itunes-app" content="app-id=YOUR_APP_ID" />
-  <meta name="google-play-app" content="app-id=YOUR_APP_ID" />
+  <!-- Mobile App Links (добавьте когда будет мобильное приложение) -->
+  {#if import.meta.env.PUBLIC_APPLE_APP_ID}
+    <meta name="apple-itunes-app" content="app-id={import.meta.env.PUBLIC_APPLE_APP_ID}" />
+  {/if}
+  {#if import.meta.env.PUBLIC_GOOGLE_PLAY_APP_ID}
+    <meta name="google-play-app" content="app-id={import.meta.env.PUBLIC_GOOGLE_PLAY_APP_ID}" />
+  {/if}
   
   <!-- JSON-LD структурированные данные -->
-  {#if jsonLd}
-    {@html `<script type="application/ld+json">${JSON.stringify(jsonLd)}</script>`}
+  {#if finalJsonLd}
+    {@html `<script type="application/ld+json">${JSON.stringify(finalJsonLd)}</script>`}
   {/if}
   
   <!-- Хлебные крошки JSON-LD -->
-  {#if breadcrumbs.length > 0}
+  {#if finalBreadcrumbs && finalBreadcrumbs.length > 0}
     {@html `<script type="application/ld+json">${JSON.stringify({
       "@context": "https://schema.org",
       "@type": "BreadcrumbList",
-      "itemListElement": breadcrumbs.map((crumb, index) => ({
+      "itemListElement": finalBreadcrumbs.map((crumb, index) => ({
         "@type": "ListItem",
         "position": index + 1,
         "name": crumb.name,
@@ -115,11 +134,11 @@
   {/if}
   
   <!-- FAQ Schema (если есть FAQ на странице) -->
-  {#if product && product.faq && product.faq.length > 0}
+  {#if finalProduct && finalProduct.faq && finalProduct.faq.length > 0}
     {@html `<script type="application/ld+json">${JSON.stringify({
       "@context": "https://schema.org",
       "@type": "FAQPage",
-      "mainEntity": product.faq.map(item => ({
+      "mainEntity": finalProduct.faq.map(item => ({
         "@type": "Question",
         "name": item.question,
         "acceptedAnswer": {

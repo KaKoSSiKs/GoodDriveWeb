@@ -60,44 +60,18 @@
 		}
 	],
 	"categories": ["shopping", "automotive"],
-	"screenshots": [
-		{
-			"src": "/screenshots/home.png",
-			"sizes": "1280x720",
-			"type": "image/png",
-			"form_factor": "wide"
-		},
-		{
-			"src": "/screenshots/catalog.png",
-			"sizes": "750x1334",
-			"type": "image/png",
-			"form_factor": "narrow"
-		}
-	],
 	"shortcuts": [
 		{
 			"name": "Каталог",
 			"short_name": "Каталог",
 			"description": "Открыть каталог автозапчастей",
-			"url": "/catalog",
-			"icons": [
-				{
-					"src": "/icons/catalog-shortcut.png",
-					"sizes": "96x96"
-				}
-			]
+			"url": "/catalog"
 		},
 		{
 			"name": "Корзина",
 			"short_name": "Корзина",
 			"description": "Открыть корзину покупок",
-			"url": "/cart",
-			"icons": [
-				{
-					"src": "/icons/cart-shortcut.png",
-					"sizes": "96x96"
-				}
-			]
+			"url": "/cart"
 		}
 	]
 }

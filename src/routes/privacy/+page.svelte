@@ -39,7 +39,7 @@
         <p>
           Настоящая Политика конфиденциальности (далее — «Политика») определяет порядок обработки и защиты 
           персональных данных пользователей интернет-магазина GoodDrive (далее — «Сайт»), расположенного 
-          по адресу: <a href="https://gooddrive.com" class="text-gray-900 hover:text-gray-700 no-underline border-b border-gray-200 hover:border-gray-900 transition-all">https://gooddrive.com</a>.
+          по адресу: <a href="https://nikitintex.ru" class="text-gray-900 hover:text-gray-700 no-underline border-b border-gray-200 hover:border-gray-900 transition-all">https://nikitintex.ru</a>.
         </p>
         <p>
           Настоящая Политика разработана в соответствии с Федеральным законом от 27.07.2006 № 152-ФЗ 

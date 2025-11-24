@@ -41,17 +41,13 @@
       title: 'Клиентам',
       links: [
         { name: 'О компании', href: '/about' },
-        { name: 'Доставка и оплата', href: '/delivery' },
-        { name: 'Возврат товара', href: '/returns' },
         { name: 'Контакты', href: '/#contacts' }
       ]
     },
     {
       title: 'Помощь',
       links: [
-        { name: 'Как сделать заказ', href: '/help/order' },
         { name: 'Подбор по VIN', href: '/#consultation' },
-        { name: 'Гарантия', href: '/warranty' },
         { name: 'FAQ', href: '/faq' }
       ]
     }

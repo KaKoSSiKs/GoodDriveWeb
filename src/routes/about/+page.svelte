@@ -2,9 +2,9 @@
   import SeoHead from '$lib/components/SeoHead.svelte';
   
   const seoData = {
-    title: 'О компании GoodDrive',
-    description: 'GoodDrive - надежный поставщик автозапчастей в Челябинске. Работаем на рынке более 10 лет, предлагаем качественные запчасти с гарантией.',
-    keywords: 'о компании, gooddrive, автозапчасти челябинск, о нас',
+    title: 'О компании GoodDrive - Автозапчасти Челябинск',
+    description: 'GoodDrive - надежный поставщик автозапчастей в Челябинске. Работаем на рынке более 10 лет, предлагаем качественные запчасти с гарантией. Доставка по Челябинску и России.',
+    keywords: 'о компании gooddrive, автозапчасти челябинск, интернет магазин автозапчастей челябинск, о нас, доставка автозапчастей челябинск',
     image: '/images/about-og.jpg',
     type: 'website'
   };
@@ -12,10 +12,11 @@
   const organizationJsonLd = {
     "@context": "https://schema.org",
     "@type": "Organization",
-    "name": "GoodDrive",
-    "description": "Интернет-магазин автозапчастей",
-    "url": "https://gooddrive.com",
-    "logo": "https://gooddrive.com/images/logo.jpg",
+    "name": "GoodDrive - Автозапчасти Челябинск",
+    "alternateName": "GoodDrive",
+    "description": "Интернет-магазин автозапчастей в Челябинске. Широкий ассортимент автозапчастей для всех марок автомобилей.",
+    "url": "https://nikitintex.ru",
+    "logo": "https://nikitintex.ru/images/logo.jpg",
     "foundingDate": "2014",
     "telephone": "+7-922-708-15-53",
     "email": "89227081553@mail.ru",

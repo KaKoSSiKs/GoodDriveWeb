@@ -9,7 +9,7 @@ export const GET: RequestHandler = async () => {
 		// Используем environment variable для base URL
 		// В development будет localhost, в production - реальный домен
 		// Используем dynamic env для поддержки отсутствующего значения при сборке
-		const baseUrl = env.PUBLIC_SITE_URL || 'http://localhost:3000';
+		const baseUrl = env.PUBLIC_SITE_URL || 'https://nikitintex.ru';
 		const buildDate = new Date().toUTCString();
 
 		// Получаем последние 50 товаров

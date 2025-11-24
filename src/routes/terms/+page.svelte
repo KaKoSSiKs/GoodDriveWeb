@@ -39,7 +39,7 @@
         <p>
           Настоящее Пользовательское соглашение (далее — «Соглашение») определяет условия использования 
           интернет-магазина GoodDrive (далее — «Сайт»), расположенного по адресу: 
-          <a href="https://gooddrive.com" class="text-gray-900 hover:text-gray-700 no-underline border-b border-gray-200 hover:border-gray-900 transition-all">https://gooddrive.com</a>.
+          <a href="https://nikitintex.ru" class="text-gray-900 hover:text-gray-700 no-underline border-b border-gray-200 hover:border-gray-900 transition-all">https://nikitintex.ru</a>.
         </p>
         <p>
           Используя Сайт, Вы подтверждаете, что ознакомились с условиями настоящего Соглашения, 
@@ -52,7 +52,7 @@
         <div class="bg-gray-50 rounded-2xl p-6 border border-gray-100">
           <ul class="list-none pl-0 space-y-4 text-base my-0">
             <li>
-              <strong class="text-gray-900">Сайт</strong> — интернет-ресурс, доступный по адресу gooddrive.com
+              <strong class="text-gray-900">Сайт</strong> — интернет-ресурс, доступный по адресу nikitintex.ru
             </li>
             <li>
               <strong class="text-gray-900">Администрация</strong> — владельцы и модераторы ресурса

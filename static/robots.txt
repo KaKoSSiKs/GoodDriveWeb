@@ -15,7 +15,7 @@ Allow: /images/
 Allow: /icons/
 
 # Sitemap
-Sitemap: https://gooddrive.com/sitemap.xml
+Sitemap: https://nikitintex.ru/sitemap.xml
 
 # Специальные правила для Яндекса
 User-agent: Yandex
@@ -23,6 +23,7 @@ Allow: /
 Disallow: /admin/
 Disallow: /api/
 Crawl-delay: 1
+Host: https://nikitintex.ru
 
 # Специальные правила для Google
 User-agent: Googlebot
