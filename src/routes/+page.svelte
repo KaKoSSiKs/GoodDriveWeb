@@ -302,6 +302,8 @@
   onmousemove={handleMouseMove}
   onmouseenter={handleMouseEnter}
   onmouseleave={handleMouseLeave}
+  role="region"
+  aria-label="Главный раздел"
   class="relative min-h-screen flex items-center overflow-hidden bg-[#F8F9FA] -mt-24 lg:-mt-28"
   style="--x: 50%; --y: 50%; --r: 0px;"
 >

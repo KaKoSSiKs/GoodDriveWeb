@@ -104,10 +104,10 @@
         </div>
 
         {#each cart as item (item.id)}
+          {@const imageUrl = item.image ? imageUtils.getAbsoluteUrl(item.image) : null}
           <div class="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm flex flex-col sm:flex-row items-center gap-4 sm:gap-6 group hover:border-gray-200 transition-all">
             <!-- Image -->
             <div class="w-24 h-24 bg-gray-50 rounded-xl flex-shrink-0 overflow-hidden flex items-center justify-center">
-              {@const imageUrl = item.image ? imageUtils.getAbsoluteUrl(item.image) : null}
               {#if imageUrl}
                 <img src={imageUrl} alt={item.title} class="w-full h-full object-cover" />
               {:else}

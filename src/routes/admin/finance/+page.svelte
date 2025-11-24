@@ -403,7 +403,7 @@
     <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
       <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
         <h3 class="text-lg font-bold text-gray-900">Добавить расход</h3>
-        <button onclick={() => showAddExpense = false} class="text-gray-400 hover:text-gray-600 transition-colors">
+        <button onclick={() => showAddExpense = false} class="text-gray-400 hover:text-gray-600 transition-colors" aria-label="Закрыть">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
       </div>
@@ -444,7 +444,7 @@
     <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
       <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
         <h3 class="text-lg font-bold text-gray-900">Добавить транзакцию</h3>
-        <button onclick={() => showAddTransaction = false} class="text-gray-400 hover:text-gray-600 transition-colors">
+        <button onclick={() => showAddTransaction = false} class="text-gray-400 hover:text-gray-600 transition-colors" aria-label="Закрыть">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
       </div>
