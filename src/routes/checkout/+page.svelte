@@ -506,9 +506,9 @@
             
             <div class="space-y-4 mb-6 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
               {#each cart as item}
+                {@const imageUrl = item.image ? imageUtils.getAbsoluteUrl(item.image) : null}
                 <div class="flex gap-3">
                   <div class="w-16 h-16 bg-gray-50 rounded-lg flex-shrink-0 overflow-hidden flex items-center justify-center">
-                    {@const imageUrl = item.image ? imageUtils.getAbsoluteUrl(item.image) : null}
                     {#if imageUrl}
                       <img src={imageUrl} alt="" class="w-full h-full object-cover"/>
                     {:else}
