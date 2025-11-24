@@ -339,7 +339,8 @@ export const cartUtils = {
       }
       
       const brandName = part.brand_name || part.brand?.name || '';
-      const imageUrl = part.main_image?.url || part.images?.[0]?.image_url || null;
+      const rawImageUrl = part.main_image?.url || part.images?.[0]?.image_url || null;
+      const imageUrl = rawImageUrl ? imageUtils.getAbsoluteUrl(rawImageUrl) : null;
       cart.push({
         id: part.id,
         title: part.title,

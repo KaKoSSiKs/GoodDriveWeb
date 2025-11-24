@@ -17,27 +17,23 @@
     try {
       isLoading = true;
       
-      // Загружаем заказы за период для расчета статистики
       const daysAgo = parseInt(period);
       const dateFrom = new Date();
       dateFrom.setDate(dateFrom.getDate() - daysAgo);
-      dateFrom.setHours(0, 0, 0, 0); // Начало дня
+      dateFrom.setHours(0, 0, 0, 0);
       
       const ordersResponse = await ordersApi.getOrders({
         created_after: dateFrom.toISOString().split('T')[0],
-        page_size: 100, // Максимальное допустимое значение
+        page_size: 100,
         ordering: 'created_at'
       });
       
       const orders = ordersResponse.results || [];
       
-      // Рассчитываем общую выручку и средний чек на основе заказов за период
-      // API возвращает totalAmount (camelCase), но может быть и total_amount (snake_case)
       let totalRevenue = 0;
       let validOrdersCount = 0;
       
       orders.forEach(order => {
-        // Пробуем получить сумму заказа в разных форматах
         const amount = order.totalAmount !== undefined 
           ? parseFloat(order.totalAmount) 
           : (order.total_amount !== undefined 
@@ -50,56 +46,41 @@
         }
       });
       
-      // Средний чек = общая выручка / количество заказов с ненулевой суммой
       const avgOrder = validOrdersCount > 0 ? totalRevenue / validOrdersCount : 0;
       
-      // Сохраняем рассчитанные значения (округляем до 2 знаков)
       stats.totalRevenue = Math.round(totalRevenue * 100) / 100;
       stats.avgOrder = Math.round(avgOrder * 100) / 100;
       
-      // Группируем по дням для графика
       const ordersByDay = {};
       orders.forEach(order => {
-        // Получаем дату создания заказа
         const orderDate = order.createdAt || order.created_at;
-        if (!orderDate) return; // Пропускаем заказы без даты
+        if (!orderDate) return;
         
-        // Парсим дату правильно
         let dateObj;
         try {
           dateObj = new Date(orderDate);
-          if (isNaN(dateObj.getTime())) {
-            // Если дата невалидна, пропускаем
-            console.warn('Invalid date:', orderDate);
-            return;
-          }
+          if (isNaN(dateObj.getTime())) return;
         } catch (error) {
-          // Если ошибка парсинга, пропускаем
-          console.warn('Error parsing date:', orderDate, error);
           return;
         }
         
-        // Форматируем дату в формате DD.MM.YYYY для отображения
         const dateStr = dateObj.toLocaleDateString('ru-RU', {
           day: '2-digit',
-          month: '2-digit',
-          year: 'numeric'
+          month: '2-digit'
         });
         
-        // Используем ISO дату (YYYY-MM-DD) как ключ для группировки (более надежно)
         const dateKey = dateObj.toISOString().split('T')[0];
         
         if (!ordersByDay[dateKey]) {
           ordersByDay[dateKey] = { 
-            date: dateStr, // Отображаемая дата в формате DD.MM.YYYY
-            dateObj: dateObj, // Объект даты для сортировки
+            date: dateStr, 
+            dateObj: dateObj, 
             count: 0, 
             revenue: 0 
           };
         }
         ordersByDay[dateKey].count++;
         
-        // Получаем сумму заказа (та же логика, что и выше)
         const amount = order.totalAmount !== undefined 
           ? parseFloat(order.totalAmount) 
           : (order.total_amount !== undefined 
@@ -111,19 +92,14 @@
         }
       });
       
-      // Сортируем по дате (от старых к новым) и преобразуем в массив
       stats.revenueByDay = Object.values(ordersByDay)
-        .sort((a, b) => {
-          // Сортируем по объекту даты
-          return a.dateObj.getTime() - b.dateObj.getTime();
-        })
+        .sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime())
         .map(item => ({
-          date: item.date, // Отображаемая дата
+          date: item.date,
           count: item.count,
-          revenue: Math.round(item.revenue * 100) / 100 // Округляем до 2 знаков
+          revenue: Math.round(item.revenue * 100) / 100
         }));
       
-      // ТОП товары - из заказов (что больше заказывают)
       try {
           const productsStats = await fetch('/api/analytics/products?limit=10').then(r => r.json());
           if (productsStats.success && productsStats.topProducts) {
@@ -133,7 +109,7 @@
               brand_name: product.brand,
               totalSold: product.totalSold,
               totalRevenue: product.totalRevenue,
-              available: product.totalSold // Используем количество проданных как показатель популярности
+              available: product.totalSold
             }));
           } else {
             stats.topParts = [];
@@ -143,27 +119,9 @@
         stats.topParts = [];
       }
       
-      // Конверсия (завершённые / все заказы) - считаем завершенные заказы
       const completedCount = orders.filter(o => o.status === 'completed' || o.status === 'shipped').length;
       const totalCount = orders.length;
       stats.conversionRate = totalCount > 0 ? (completedCount / totalCount * 100) : 0;
-      
-      // Отладочное логирование (можно убрать в production)
-      if (process.env.NODE_ENV === 'development') {
-        console.log('Аналитика за период:', {
-          period: `${daysAgo} дней`,
-          totalOrders: totalCount,
-          totalRevenue: totalRevenue.toFixed(2),
-          avgOrder: avgOrder.toFixed(2),
-          completedOrders: completedCount,
-          conversionRate: stats.conversionRate.toFixed(2) + '%',
-          sampleOrder: orders.length > 0 ? {
-            id: orders[0].id,
-            totalAmount: orders[0].totalAmount || orders[0].total_amount,
-            createdAt: orders[0].createdAt || orders[0].created_at
-          } : null
-        });
-      }
       
     } catch (error) {
       console.error('Ошибка загрузки аналитики:', error);
@@ -185,165 +143,191 @@
   <title>Аналитика - Admin</title>
 </svelte:head>
 
-<div class="space-y-4 sm:space-y-6 w-full">
-  <!-- Заголовок -->
+<div class="space-y-8 w-full">
+  <!-- Header -->
   <div class="flex items-center justify-between">
     <div>
-      <h1 class="text-3xl font-bold text-gray-900">Аналитика</h1>
-      <p class="text-gray-600 mt-2">Статистика продаж и выручки</p>
+      <h1 class="text-3xl font-bold text-gray-900 tracking-tight">Аналитика</h1>
+      <p class="text-gray-500 mt-2">Обзор ключевых показателей и статистики</p>
     </div>
     
-    <select
-      bind:value={period}
-      onchange={handlePeriodChange}
-      class="input"
-    >
-      <option value="7">За 7 дней</option>
-      <option value="30">За 30 дней</option>
-      <option value="90">За 90 дней</option>
-    </select>
+    <div class="bg-white rounded-xl border border-gray-200 p-1 shadow-sm">
+      <select
+        bind:value={period}
+        onchange={handlePeriodChange}
+        class="bg-transparent border-none text-sm font-medium text-gray-700 focus:ring-0 cursor-pointer pl-3 pr-8 py-1.5"
+      >
+        <option value="7">За 7 дней</option>
+        <option value="30">За 30 дней</option>
+        <option value="90">За 90 дней</option>
+      </select>
+    </div>
   </div>
   
   {#if isLoading}
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
       {#each Array(3) as _}
-        <div class="bg-white rounded-xl shadow-sm p-6 animate-pulse">
-          <div class="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
-          <div class="h-8 bg-gray-200 rounded w-3/4"></div>
+        <div class="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm animate-pulse">
+          <div class="h-4 bg-gray-100 rounded w-1/2 mb-4"></div>
+          <div class="h-8 bg-gray-100 rounded w-3/4"></div>
         </div>
       {/each}
     </div>
   {:else}
-    <!-- Основная статистика -->
+    <!-- Main Stats -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white">
-        <p class="text-sm opacity-90 mb-2">Общая выручка за {period} дн.</p>
-        <p class="text-4xl font-bold">{formatUtils.formatPrice(Number(stats.totalRevenue) || 0)}</p>
-        <p class="text-xs opacity-75 mt-2">{stats.revenueByDay.reduce((sum, day) => sum + day.count, 0)} заказов</p>
+      <div class="bg-gray-900 rounded-2xl p-6 text-white shadow-xl shadow-gray-900/10">
+        <div class="flex items-start justify-between">
+          <div>
+            <p class="text-gray-400 text-sm font-medium mb-1">Общая выручка</p>
+            <h3 class="text-3xl font-bold tracking-tight text-white">
+              {formatUtils.formatPrice(Number(stats.totalRevenue) || 0)}
+            </h3>
+          </div>
+          <div class="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+        </div>
+        <div class="mt-4 flex items-center text-sm">
+          <span class="text-gray-400">За {period} дней</span>
+          <span class="mx-2 text-gray-600">•</span>
+          <span class="text-gray-300 font-medium">{stats.revenueByDay.reduce((sum, day) => sum + day.count, 0)} заказов</span>
+        </div>
       </div>
       
-      <div class="bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-6 text-white">
-        <p class="text-sm opacity-90 mb-2">Средний чек</p>
-        <p class="text-4xl font-bold">{formatUtils.formatPrice(Number(stats.avgOrder) || 0)}</p>
-        <p class="text-xs opacity-75 mt-2">За {period} дней</p>
+      <div class="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+        <div class="flex items-start justify-between">
+          <div>
+            <p class="text-gray-500 text-sm font-medium mb-1">Средний чек</p>
+            <h3 class="text-3xl font-bold tracking-tight text-gray-900">
+              {formatUtils.formatPrice(Number(stats.avgOrder) || 0)}
+            </h3>
+          </div>
+          <div class="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center">
+            <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 3.666V19.125a.625.625 0 01-.625.625H9.625a.625.625 0 01-.625-.625V10.666C7 9.944 6.833 9.389 6.5 9.2c-.5.282-.56 1.523-1.5 2.5M15 10.666V7H9v1.143c0 2.761 0 2.857 0 2.857h6z" />
+            </svg>
+          </div>
+        </div>
+        <div class="mt-4 flex items-center text-sm">
+          <span class="text-green-600 font-medium flex items-center">
+             <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+             Активность
+          </span>
+          <span class="mx-2 text-gray-300">|</span>
+          <span class="text-gray-500">Динамика продаж</span>
+        </div>
       </div>
       
-      <div class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg p-6 text-white">
-        <p class="text-sm opacity-90 mb-2">Заказов за период</p>
-        <p class="text-4xl font-bold">{stats.revenueByDay.reduce((sum, day) => sum + day.count, 0)}</p>
+      <div class="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+        <div class="flex items-start justify-between">
+          <div>
+            <p class="text-gray-500 text-sm font-medium mb-1">Конверсия заказов</p>
+            <h3 class="text-3xl font-bold tracking-tight text-gray-900">
+              {stats.conversionRate.toFixed(1)}%
+            </h3>
+          </div>
+          <div class="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center">
+            <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+        </div>
+        <div class="mt-4">
+           <div class="w-full bg-gray-100 rounded-full h-1.5">
+             <div class="bg-gray-900 h-1.5 rounded-full" style="width: {stats.conversionRate}%"></div>
+           </div>
+           <p class="text-xs text-gray-500 mt-2 text-right">Успешных заказов от общего числа</p>
+        </div>
       </div>
     </div>
     
-    <!-- График выручки по дням -->
-    <div class="bg-white rounded-xl shadow-sm p-6">
-      <h2 class="text-xl font-bold text-gray-900 mb-6">Выручка по дням</h2>
-      {#if stats.revenueByDay.length > 0}
-        <div class="space-y-3">
-          {#each stats.revenueByDay as day}
-            {#if Math.max(...stats.revenueByDay.map(d => Number(d.revenue) || 0), 1) > 0 && (Number(day.revenue) || 0) > 0}
-              {@const maxRevenue = Math.max(...stats.revenueByDay.map(d => Number(d.revenue) || 0), 1)}
-              {@const revenueValue = Number(day.revenue) || 0}
-              {@const revenuePercent = maxRevenue > 0 ? Math.min(100, (revenueValue / maxRevenue * 100)) : 0}
-              <div class="flex items-center space-x-4">
-                <span class="text-sm text-gray-600 w-24 font-medium">{day.date || 'Дата не указана'}</span>
-                <div class="flex-1 bg-gray-100 rounded-full h-8 overflow-hidden relative">
-                  <div 
-                    class="bg-gradient-to-r from-primary-500 to-primary-600 h-full flex items-center px-3 transition-all duration-300"
-                    style="width: {revenuePercent}%"
-                  >
-                    {#if revenuePercent > 15}
-                      <span class="text-xs font-medium text-white whitespace-nowrap">{formatUtils.formatPrice(revenueValue)}</span>
+    <!-- Chart Section -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div class="lg:col-span-2 bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+        <h3 class="text-lg font-bold text-gray-900 mb-6">Динамика выручки</h3>
+        
+        {#if stats.revenueByDay.length > 0}
+          <div class="space-y-4">
+            {#each stats.revenueByDay as day}
+              {#if Math.max(...stats.revenueByDay.map(d => Number(d.revenue) || 0), 1) > 0}
+                {@const maxRevenue = Math.max(...stats.revenueByDay.map(d => Number(d.revenue) || 0), 1)}
+                {@const revenueValue = Number(day.revenue) || 0}
+                {@const revenuePercent = maxRevenue > 0 ? Math.min(100, (revenueValue / maxRevenue * 100)) : 0}
+                
+                <div class="flex items-center gap-4 group">
+                  <div class="w-12 text-xs font-medium text-gray-400 text-right">{day.date}</div>
+                  <div class="flex-1 h-8 bg-gray-50 rounded-lg overflow-hidden relative">
+                    {#if revenuePercent > 0}
+                      <div 
+                        class="h-full bg-gray-900 rounded-lg transition-all duration-500 ease-out flex items-center px-3 group-hover:bg-black"
+                        style="width: {revenuePercent}%"
+                      >
+                         {#if revenuePercent > 20}
+                           <span class="text-[10px] font-bold text-white opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                             {formatUtils.formatPrice(revenueValue)}
+                           </span>
+                         {/if}
+                      </div>
+                    {/if}
+                    {#if revenuePercent <= 20}
+                       <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-xs font-medium text-gray-900 ml-2">
+                         {revenueValue > 0 ? formatUtils.formatPrice(revenueValue) : ''}
+                       </span>
                     {/if}
                   </div>
-                  {#if revenuePercent <= 15}
-                    <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-xs font-medium text-gray-700">{formatUtils.formatPrice(revenueValue)}</span>
-                  {/if}
+                  <div class="w-16 text-xs font-bold text-gray-900 text-right">{day.count} зак.</div>
                 </div>
-                <span class="text-sm font-semibold text-gray-900 w-20 text-right whitespace-nowrap">{day.count || 0} шт.</span>
-              </div>
-            {:else}
-              <div class="flex items-center space-x-4">
-                <span class="text-sm text-gray-600 w-24 font-medium">{day.date || 'Дата не указана'}</span>
-                <div class="flex-1 bg-gray-100 rounded-full h-8 overflow-hidden relative">
-                  <div class="bg-gradient-to-r from-primary-500 to-primary-600 h-full flex items-center px-3 transition-all duration-300" style="width: 0%">
-                  </div>
-                  <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-xs font-medium text-gray-700">{formatUtils.formatPrice(Number(day.revenue) || 0)}</span>
-                </div>
-                <span class="text-sm font-semibold text-gray-900 w-20 text-right whitespace-nowrap">{day.count || 0} шт.</span>
-              </div>
-            {/if}
-          {/each}
-        </div>
-      {:else}
-        <div class="text-center py-12 text-gray-500">
-          <p>Нет данных за выбранный период</p>
-        </div>
-      {/if}
-    </div>
-    
-    <!-- ТОП товары -->
-    <div class="bg-white rounded-xl shadow-sm p-6">
-      <h3 class="text-lg font-semibold text-gray-900 mb-4">ТОП-10 товаров (по количеству заказов)</h3>
-      {#if stats.topParts.length > 0}
-        <div class="space-y-3">
-          {#each stats.topParts as part}
-            <div class="flex justify-between items-center py-2 border-b border-gray-100 last:border-0">
-              <div class="flex-1 min-w-0">
-                <p class="text-sm font-medium text-gray-900 truncate">{part.title}</p>
-                <p class="text-xs text-gray-500">{part.brand_name}</p>
-              </div>
-              <div class="text-right ml-4">
-                <p class="text-sm font-semibold text-gray-900">Продано: {part.totalSold} шт.</p>
-                <p class="text-xs text-gray-500">Выручка: {formatUtils.formatPrice(part.totalRevenue)}</p>
-              </div>
-            </div>
-          {/each}
-        </div>
-      {:else}
-        <p class="text-gray-500">Нет данных</p>
-      {/if}
-    </div>
-    
-    <!-- Дополнительная информация -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <div class="bg-white rounded-xl shadow-sm p-6">
-        <h3 class="text-lg font-semibold text-gray-900 mb-4">Конверсия</h3>
-        <div class="flex items-center justify-center">
-          <div class="text-center">
-            <div class="text-5xl font-bold text-primary-600 mb-2">{stats.conversionRate.toFixed(1)}%</div>
-            <p class="text-sm text-gray-600">Заказов завершено успешно</p>
+              {/if}
+            {/each}
           </div>
-        </div>
+        {:else}
+          <div class="flex flex-col items-center justify-center h-64 text-gray-400">
+            <svg class="w-12 h-12 mb-4 text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            <p>Нет данных за выбранный период</p>
+          </div>
+        {/if}
       </div>
       
-      <div class="bg-white rounded-xl shadow-sm p-6">
-        <h3 class="text-lg font-semibold text-gray-900 mb-4">Статистика</h3>
-        <div class="space-y-3">
-          <div class="flex justify-between items-center py-2 border-b border-gray-100">
-            <span class="text-sm text-gray-600">Всего заказов</span>
-            <span class="font-semibold text-gray-900">{stats.revenueByDay.reduce((sum, day) => sum + day.count, 0)}</span>
+      <!-- Top Products -->
+      <div class="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+        <h3 class="text-lg font-bold text-gray-900 mb-6">Лидеры продаж</h3>
+        
+        {#if stats.topParts.length > 0}
+          <div class="space-y-4">
+            {#each stats.topParts as part, i}
+              <div class="flex items-center gap-3 pb-4 border-b border-gray-50 last:border-0 last:pb-0">
+                <div class="w-8 h-8 rounded-full bg-gray-100 text-gray-500 font-bold flex items-center justify-center text-xs flex-shrink-0">
+                  {i + 1}
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-bold text-gray-900 truncate" title={part.title}>{part.title}</p>
+                  <p class="text-xs text-gray-500">{part.brand_name}</p>
+                </div>
+                <div class="text-right">
+                  <p class="text-sm font-bold text-gray-900">{part.totalSold} шт.</p>
+                  <p class="text-[10px] text-gray-400">{formatUtils.formatPrice(part.totalRevenue)}</p>
+                </div>
+              </div>
+            {/each}
           </div>
-          <div class="flex justify-between items-center py-2 border-b border-gray-100">
-            <span class="text-sm text-gray-600">Средний чек</span>
-            <span class="font-semibold text-gray-900">{formatUtils.formatPrice(Number(stats.avgOrder) || 0)}</span>
+        {:else}
+          <div class="text-center py-8 text-gray-400 text-sm">
+            Нет данных о продажах
           </div>
-          <div class="flex justify-between items-center py-2">
-            <span class="text-sm text-gray-600">Общая выручка</span>
-            <span class="font-semibold text-primary-600">{formatUtils.formatPrice(Number(stats.totalRevenue) || 0)}</span>
-          </div>
-        </div>
-      </div>
-      
-      <div class="bg-white rounded-xl shadow-sm p-6">
-        <h3 class="text-lg font-semibold text-gray-900 mb-4">Информация</h3>
-        <div class="space-y-3 text-sm text-gray-600">
-          <p>📊 График показывает выручку и количество заказов за каждый день выбранного периода ({period} дней)</p>
-          <p>💰 Общая выручка рассчитывается на основе всех заказов за выбранный период</p>
-          <p>📈 Средний чек - среднее значение суммы заказа за выбранный период</p>
-          <p>✅ Учитываются только заказы с ненулевой суммой</p>
+        {/if}
+        
+        <div class="mt-8 pt-4 border-t border-gray-100">
+          <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Инфо</h4>
+          <p class="text-xs text-gray-400 leading-relaxed">
+            Рейтинг формируется на основе количества проданных единиц товара за всё время. Выручка рассчитывается как сумма всех продаж данного товара.
+          </p>
         </div>
       </div>
     </div>
   {/if}
 </div>
-

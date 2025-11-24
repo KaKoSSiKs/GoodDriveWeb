@@ -1,540 +1,324 @@
 <script>
-	import { onMount } from 'svelte';
-	import { page } from '$app/stores';
-	import { goto } from '$app/navigation';
-	import { partsApi, cartUtils, formatUtils } from '$lib/utils/api.js';
-	import SeoHead from '$lib/components/SeoHead.svelte';
-	import PartCard from '$lib/components/PartCard.svelte';
+  import { onMount } from 'svelte';
+  import { page } from '$app/stores';
+  import { goto } from '$app/navigation';
+  import { partsApi, cartUtils, formatUtils, imageUtils } from '$lib/utils/api.js';
+  import SeoHead from '$lib/components/SeoHead.svelte';
+  import PartCard from '$lib/components/PartCard.svelte';
+  import { toastStore } from '$lib/stores/toast.js';
 
-	// Состояние
-	let part = $state(null);
-	let similarParts = $state([]);
-	let loading = $state(true);
-	let selectedImageIndex = $state(0);
-	let quantity = $state(1);
-	let isAddingToCart = $state(false);
-	let showNotification = $state(false);
+  let part = $state(null);
+  let similarParts = $state([]);
+  let loading = $state(true);
+  let selectedImageIndex = $state(0);
+  let quantity = $state(1);
+  let isAddingToCart = $state(false);
 
-	// Производные значения
-	const productId = $derived($page.params.id);
-	const hasImages = $derived(part?.images?.length > 0);
-	const currentImage = $derived(part?.images?.[selectedImageIndex]);
-	const brandName = $derived(part?.brand?.name || 'Неизвестный');
-	const brandCountry = $derived(part?.brand?.country || '');
-	const warehouseName = $derived(part?.warehouse?.name || '');
-	const isInStock = $derived(part?.available > 0);
-	
-	// Реактивное состояние корзины
-	let cartItems = $state(cartUtils.getCart());
-	
-	// Получаем количество товара уже в корзине
-	const cartQuantity = $derived(() => {
-		if (!part) return 0;
-		const cartItem = cartItems.find(item => item.id === part.id);
-		return cartItem ? cartItem.quantity : 0;
-	});
-	
-	// Максимальное количество = доступное количество минус уже в корзине
-	const maxQuantity = $derived(() => {
-		if (!part) return 0;
-		const available = part.available || 0;
-		const inCart = cartQuantity;
-		return Math.max(0, Math.min(available - inCart, 99));
-	});
-	
-	// Обновляем корзину при изменении
-	function updateCart() {
-		cartItems = cartUtils.getCart();
-	}
-	
-	const price = $derived(parseFloat(part?.price_opt) || 0);
-	const totalPrice = $derived(price * quantity);
+  const productId = $derived($page.params.id);
+  const hasImages = $derived(part?.images?.length > 0);
+  const currentImage = $derived(part?.images?.[selectedImageIndex]);
+  const currentImageUrl = $derived.by(() => {
+    if (!currentImage) return null;
+    const url = currentImage.image_url || currentImage.imageUrl || currentImage.url;
+    return url ? imageUtils.getAbsoluteUrl(url) : null;
+  });
+  const brandName = $derived(part?.brand?.name || 'Неизвестный');
+  const brandCountry = $derived(part?.brand?.country || '');
+  const warehouseName = $derived(part?.warehouse?.name || '');
+  const isInStock = $derived(part?.available > 0);
+  
+  let cartItems = $state(cartUtils.getCart());
+  
+  const cartQuantity = $derived(() => {
+    if (!part) return 0;
+    const cartItem = cartItems.find(item => item.id === part.id);
+    return cartItem ? cartItem.quantity : 0;
+  });
+  
+  const maxQuantity = $derived(() => {
+    if (!part) return 0;
+    const available = part.available || 0;
+    const inCart = cartQuantity();
+    return Math.max(0, Math.min(available - inCart, 99));
+  });
+  
+  function updateCart() {
+    cartItems = cartUtils.getCart();
+  }
+  
+  const price = $derived(parseFloat(part?.price_opt) || 0);
+  const totalPrice = $derived(price * quantity);
 
-	// SEO данные
-	const seoData = $derived({
-		title: part?.title ? `${part.title} - ${brandName} | GoodDrive` : 'Загрузка...',
-		description: part?.description || `Автозапчасть ${part?.title || ''} от ${brandName}. Наличие: ${part?.available || 0} шт. Быстрая доставка по России.`,
-		keywords: part ? `${part.title}, ${brandName}, автозапчасти, ${part.original_number || ''}` : '',
-		type: 'product'
-	});
+  const seoData = $derived({
+    title: part?.title ? `${part.title} - ${brandName} | GoodDrive` : 'Загрузка...',
+    description: part?.description || `Автозапчасть ${part?.title || ''} от ${brandName}. Наличие: ${part?.available || 0} шт. Быстрая доставка по России.`,
+    keywords: part ? `${part.title}, ${brandName}, автозапчасти, ${part.original_number || ''}` : '',
+    type: 'product'
+  });
 
-	// Загрузка товара
-	async function loadPart() {
-		if (!productId) return;
+  async function loadPart() {
+    if (!productId) return;
 
-		loading = true;
-		try {
-			part = await partsApi.getPart(productId);
-			console.log('Загружен товар:', {
-				id: part?.id,
-				title: part?.title,
-				hasImages: !!part?.images,
-				imagesCount: part?.images?.length || 0,
-				images: part?.images,
-				firstImage: part?.images?.[0]
-			});
-			quantity = 1;
-			selectedImageIndex = 0;
-		} catch (error) {
-			console.error('Ошибка загрузки товара:', error);
-			goto('/catalog');
-		} finally {
-			loading = false;
-		}
-	}
+    loading = true;
+    try {
+      part = await partsApi.getPart(productId);
+      quantity = 1;
+      selectedImageIndex = 0;
+    } catch (error) {
+      console.error('Ошибка загрузки товара:', error);
+      goto('/catalog');
+    } finally {
+      loading = false;
+    }
+  }
 
-	// Загрузка похожих товаров
-	async function loadSimilarParts() {
-		if (!part) return;
+  async function loadSimilarParts() {
+    if (!part) return;
 
-		try {
-			const response = await partsApi.getParts({ 
-				brand: part.brand?.id,
-				page_size: 4 
-			});
-			similarParts = (response.results || []).filter(p => p.id !== part.id).slice(0, 4);
-		} catch (error) {
-			console.error('Ошибка загрузки похожих товаров:', error);
-		}
-	}
+    try {
+      const response = await partsApi.getParts({ 
+        brand: part.brand?.id,
+        page_size: 4 
+      });
+      similarParts = (response.results || []).filter(p => p.id !== part.id).slice(0, 4);
+    } catch (error) {
+      console.error('Ошибка загрузки похожих товаров:', error);
+    }
+  }
 
-	// Добавление в корзину
-	function handleAddToCart() {
-		if (!part || !isInStock || isAddingToCart || maxQuantity() <= 0) return;
+  function handleAddToCart() {
+    if (!part || !isInStock || isAddingToCart || maxQuantity() <= 0) return;
 
-		isAddingToCart = true;
-		cartUtils.addToCart(part, quantity);
-		updateCart(); // Обновляем состояние корзины
-		
-		// Показываем уведомление
-		showNotification = true;
-		setTimeout(() => {
-			showNotification = false;
-			isAddingToCart = false;
-		}, 2000);
-	}
+    isAddingToCart = true;
+    cartUtils.addToCart(part, quantity);
+    updateCart();
+    
+    toastStore.success('Товар добавлен в корзину');
+    
+    setTimeout(() => {
+      isAddingToCart = false;
+    }, 500);
+  }
 
-	// Изменение количества
-	function updateQuantity(delta) {
-		const newQuantity = quantity + delta;
-		const maxQty = maxQuantity();
-		if (newQuantity >= 1 && newQuantity <= maxQty) {
-			quantity = newQuantity;
-		} else if (newQuantity > maxQty) {
-			// Ограничиваем максимальным доступным количеством
-			quantity = maxQty;
-		}
-	}
+  function updateQuantity(delta) {
+    const newQuantity = quantity + delta;
+    const maxQty = maxQuantity();
+    if (newQuantity >= 1 && newQuantity <= maxQty) {
+      quantity = newQuantity;
+    } else if (newQuantity > maxQty) {
+      quantity = maxQty;
+    }
+  }
 
-	// Выбор изображения
-	function selectImage(index) {
-		selectedImageIndex = index;
-	}
+  function selectImage(index) {
+    selectedImageIndex = index;
+  }
 
-	// Инициализация
-	onMount(() => {
-		loadPart();
-		updateCart();
-		
-		// Слушаем изменения корзины
-		if (typeof window !== 'undefined') {
-			window.addEventListener('cartUpdated', updateCart);
-		}
-	});
-	
-	// Очистка при размонтировании
-	$effect(() => {
-		return () => {
-			if (typeof window !== 'undefined') {
-				window.removeEventListener('cartUpdated', updateCart);
-			}
-		};
-	});
+  onMount(() => {
+    loadPart();
+    updateCart();
+    
+    if (typeof window !== 'undefined') {
+      window.addEventListener('cartUpdated', updateCart);
+    }
+  });
+  
+  $effect(() => {
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('cartUpdated', updateCart);
+      }
+    };
+  });
 
-	// Загрузка похожих при изменении товара
-	$effect(() => {
-		if (part) {
-			loadSimilarParts();
-		}
-	});
+  $effect(() => {
+    if (part) {
+      loadSimilarParts();
+    }
+  });
 </script>
 
 <SeoHead data={seoData} />
 
-<!-- Уведомление о добавлении в корзину -->
-{#if showNotification}
-	<div class="fixed top-20 right-4 bg-green-500 text-white px-6 py-3 rounded-xl shadow-2xl z-50 flex items-center gap-3 animate-slide-in-right">
-		<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-		</svg>
-		<span class="font-medium">Добавлено в корзину!</span>
-	</div>
-{/if}
+<div class="container-custom py-8 md:py-12">
+  <!-- Breadcrumbs -->
+  <nav class="flex items-center gap-2 text-sm text-gray-500 mb-8">
+    <a href="/" class="hover:text-gray-900 transition-colors">Главная</a>
+    <span class="text-gray-300">/</span>
+    <a href="/catalog" class="hover:text-gray-900 transition-colors">Каталог</a>
+    <span class="text-gray-300">/</span>
+    <span class="text-gray-900 font-medium truncate max-w-[200px]">{part?.title || 'Товар'}</span>
+  </nav>
 
-<div class="container-custom py-4 md:py-6">
-{#if loading}
-	<!-- Загрузка -->
-	<div class="flex items-center justify-center py-20">
-		<div class="text-center">
-			<div class="inline-block animate-spin rounded-full h-16 w-16 border-4 border-primary-200 border-t-primary-600 mb-4"></div>
-			<p class="text-gray-600 font-medium">Загрузка товара...</p>
-		</div>
-	</div>
-{:else if !part}
-	<!-- Товар не найден -->
-	<div class="max-w-2xl mx-auto">
-		<div class="card text-center py-16 px-8">
-			<svg class="w-24 h-24 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-			</svg>
-			<h2 class="text-2xl font-bold text-gray-900 mb-2">Товар не найден</h2>
-			<p class="text-gray-600 mb-6">К сожалению, этот товар не существует или был удален</p>
-			<a href="/catalog" class="btn-primary inline-flex items-center gap-2">
-				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
-				</svg>
-				Вернуться в каталог
-			</a>
-		</div>
-	</div>
-{:else}
-	<!-- Хлебные крошки -->
-	<nav class="flex items-center space-x-2 text-xs sm:text-sm text-gray-600 mb-4 md:mb-6">
-		<a href="/" class="hover:text-primary-600 transition-colors">Главная</a>
-		<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-		</svg>
-		<a href="/catalog" class="hover:text-primary-600 transition-colors">Каталог</a>
-		<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-		</svg>
-		<span class="text-gray-900 font-medium truncate">{part.title}</span>
-	</nav>
+  {#if loading}
+    <div class="grid lg:grid-cols-2 gap-12">
+      <div class="aspect-square bg-gray-100 rounded-3xl animate-pulse"></div>
+      <div class="space-y-6">
+        <div class="h-8 bg-gray-100 rounded-lg w-3/4 animate-pulse"></div>
+        <div class="h-4 bg-gray-100 rounded w-1/2 animate-pulse"></div>
+        <div class="h-20 bg-gray-100 rounded-xl animate-pulse"></div>
+      </div>
+    </div>
+  {:else if !part}
+    <div class="text-center py-20">
+      <h2 class="text-2xl font-bold text-gray-900">Товар не найден</h2>
+      <a href="/catalog" class="btn-primary mt-4">Вернуться в каталог</a>
+    </div>
+  {:else}
+    <div class="grid lg:grid-cols-[1.2fr_1fr] gap-12 lg:gap-16 items-start">
+      <!-- Gallery Section -->
+      <div class="space-y-6">
+        <div class="aspect-square bg-white rounded-3xl border border-gray-100 shadow-sm flex items-center justify-center overflow-hidden relative group">
+          {#if hasImages && currentImageUrl}
+            <img
+              src={currentImageUrl}
+              alt={currentImage?.alt_text || part.title}
+              class="w-full h-full object-contain p-8 transition-transform duration-500 group-hover:scale-105"
+            />
+          {:else}
+            <div class="flex flex-col items-center text-gray-300">
+              <svg class="w-20 h-20 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+              </svg>
+              <span class="text-sm">Нет фото</span>
+            </div>
+          {/if}
+          
+          <!-- Stock Badge -->
+          {#if !isInStock}
+            <div class="absolute top-6 right-6 bg-red-100 text-red-600 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
+              Нет в наличии
+            </div>
+          {/if}
+        </div>
 
-	<!-- Основной контент -->
-	<div class="grid gap-4 md:gap-6 lg:gap-8 mb-8 items-start lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)_minmax(0,2fr)]">
-		<!-- Левая колонка: Галерея изображений -->
-		<div class="space-y-4 order-1 lg:order-1">
-			<!-- Основное изображение -->
-			<div
-				class="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl overflow-hidden shadow-md border border-gray-200 h-[220px] md:h-[260px] lg:h-[300px] flex items-center justify-center"
-				role="img"
-				aria-label="Изображение товара {part.title}"
-			>
-				{#if hasImages && currentImage}
-					{@const imageSrc = currentImage.image_url || currentImage.imageUrl || currentImage.url || ''}
-					{#if imageSrc}
-						<img
-							src={imageSrc}
-							alt={currentImage.alt_text || currentImage.altText || `${part.title}${brandName ? ` от ${brandName}` : ''}`}
-							class="w-full h-full object-contain p-4 transition-opacity duration-300"
-							loading={selectedImageIndex === 0 ? 'eager' : 'lazy'}
-							decoding="async"
-							width="800"
-							height="800"
-							onerror={(e) => {
-								console.error('Image load error:', {
-									imageSrc,
-									currentImage,
-									partId: part.id,
-									imageId: currentImage.id
-								});
-								e.currentTarget.style.display = 'none';
-							}}
-							onload={() => {
-								console.log('Image loaded successfully:', imageSrc.substring(0, 50) + '...');
-							}}
-						/>
-					{:else}
-						<div class="w-full h-full flex items-center justify-center">
-							<p class="text-gray-400">URL изображения отсутствует</p>
-						</div>
-					{/if}
-				{:else}
-					<div class="w-full h-full flex items-center justify-center" role="img" aria-label="Изображение товара отсутствует">
-						<div class="text-center">
-							<svg class="w-32 h-32 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-							</svg>
-							<p class="text-gray-400 font-medium">Изображение отсутствует</p>
-						</div>
-					</div>
-				{/if}
-			</div>
+        {#if hasImages && part.images.length > 1}
+          <div class="flex gap-4 overflow-x-auto pb-2 snap-x">
+            {#each part.images as image, index}
+              {@const thumbUrl = imageUtils.getAbsoluteUrl(image.image_url || image.imageUrl || image.url)}
+              {#if thumbUrl}
+                <button
+                  onclick={() => selectImage(index)}
+                  class="w-20 h-20 flex-shrink-0 rounded-xl border-2 overflow-hidden transition-all {selectedImageIndex === index ? 'border-gray-900 ring-2 ring-gray-100' : 'border-gray-100 hover:border-gray-300'}"
+                >
+                  <img
+                    src={thumbUrl}
+                    alt=""
+                    class="w-full h-full object-cover"
+                  />
+                </button>
+              {/if}
+            {/each}
+          </div>
+        {/if}
+      </div>
 
-			<!-- Миниатюры -->
-			{#if part.images && part.images.length > 1}
-				<div class="grid grid-cols-4 gap-3" role="group" aria-label="Миниатюры изображений товара">
-					{#each part.images as image, index}
-						{@const thumbSrc = image.image_url || image.imageUrl || image.url || ''}
-						<button
-							onclick={() => selectImage(index)}
-							aria-label="Показать изображение {index + 1} из {part.images.length}: {image.alt_text || image.altText || part.title}"
-							aria-pressed={selectedImageIndex === index}
-							class="aspect-square bg-gray-50 rounded-xl overflow-hidden border-2 transition-all duration-200
-								   {selectedImageIndex === index ? 'border-primary-500 ring-2 ring-primary-200' : 'border-gray-200 hover:border-primary-300'}"
-						>
-							{#if thumbSrc}
-								<img
-									src={thumbSrc}
-									alt={image.alt_text || image.altText || `${part.title} - изображение ${index + 1}`}
-									class="w-full h-full object-contain p-2"
-									loading="lazy"
-									decoding="async"
-									width="200"
-									height="200"
-									onerror={(e) => {
-										console.error('Thumbnail load error:', {
-											thumbSrc,
-											image,
-											partId: part.id,
-											imageId: image.id
-										});
-										e.currentTarget.style.display = 'none';
-									}}
-								/>
-							{:else}
-								<div class="w-full h-full flex items-center justify-center">
-									<svg class="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-									</svg>
-								</div>
-							{/if}
-						</button>
-					{/each}
-				</div>
-			{/if}
-		</div>
+      <!-- Info Section -->
+      <div class="space-y-8">
+        <div>
+          <div class="flex items-center gap-3 mb-4">
+            <span class="text-xs font-bold text-gray-900 uppercase tracking-wider bg-gray-100 px-3 py-1 rounded-full">
+              {brandName}
+            </span>
+            {#if brandCountry}
+              <span class="text-xs text-gray-500 flex items-center gap-1">
+                <span class="w-1 h-1 rounded-full bg-gray-300"></span>
+                {brandCountry}
+              </span>
+            {/if}
+          </div>
+          
+          <h1 class="text-3xl md:text-4xl font-bold text-gray-900 mb-4 leading-tight">
+            {part.title}
+          </h1>
+          
+          <!-- Part Numbers -->
+          <div class="flex flex-wrap gap-4 text-sm text-gray-500 font-mono">
+            {#if part.original_number}
+              <div class="px-3 py-1.5 bg-gray-50 rounded-lg border border-gray-100">
+                OEM: <span class="text-gray-900 font-medium">{part.original_number}</span>
+              </div>
+            {/if}
+            {#if part.manufacturer_number}
+              <div class="px-3 py-1.5 bg-gray-50 rounded-lg border border-gray-100">
+                MPN: <span class="text-gray-900 font-medium">{part.manufacturer_number}</span>
+              </div>
+            {/if}
+          </div>
+        </div>
 
-		<!-- Центральная колонка: Информация о товаре -->
-		<div class="space-y-4 order-2 lg:order-2">
-			<!-- Заголовок и бейдж -->
-			<div>
-				<div class="flex items-center gap-1.5 mb-1.5">
-					<span class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-primary-50 text-primary-700 border border-primary-100">
-						{brandName}
-					</span>
-					{#if brandCountry}
-						<span class="text-xs text-gray-500">🌍 {brandCountry}</span>
-					{/if}
-				</div>
-				
-				<h1 class="text-lg md:text-xl lg:text-2xl font-bold text-gray-900 leading-snug">
-					{part.title}
-				</h1>
-			</div>
+        <!-- Price & Cart -->
+        <div class="bg-gray-50 rounded-3xl p-6 lg:p-8 border border-gray-100">
+          <div class="flex items-end gap-4 mb-6">
+            <div class="text-4xl font-bold text-gray-900">
+              {formatUtils.formatPrice(price)}
+            </div>
+            <div class="text-sm text-gray-500 mb-2">
+              / шт.
+            </div>
+          </div>
 
-			<!-- Артикулы -->
-			{#if part.original_number || part.manufacturer_number}
-				<div class="card p-2.5 md:p-3 bg-gray-50 space-y-1">
-					{#if part.original_number}
-						<div class="flex items-center justify-between text-xs md:text-sm">
-							<span class="text-gray-600 font-medium">Оригинальный номер:</span>
-							<code class="font-mono bg-white px-2.5 py-1 rounded-lg border border-gray-200 text-gray-900 text-xs md:text-sm">
-								{part.original_number}
-							</code>
-						</div>
-					{/if}
-					{#if part.manufacturer_number}
-						<div class="flex items-center justify-between text-xs md:text-sm">
-							<span class="text-gray-600 font-medium">Номер производителя:</span>
-							<code class="font-mono bg-white px-2.5 py-1 rounded-lg border border-gray-200 text-gray-900 text-xs md:text-sm">
-								{part.manufacturer_number}
-							</code>
-						</div>
-					{/if}
-				</div>
-			{/if}
+          {#if isInStock}
+            <div class="space-y-6">
+              <!-- Quantity Control -->
+              <div class="flex items-center justify-between p-4 bg-white rounded-2xl border border-gray-100">
+                <span class="text-sm font-medium text-gray-700">Количество</span>
+                <div class="flex items-center gap-4">
+                  <button onclick={() => updateQuantity(-1)} disabled={quantity <= 1} class="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 disabled:opacity-50 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"/></svg>
+                  </button>
+                  <span class="text-lg font-bold w-8 text-center">{quantity}</span>
+                  <button onclick={() => updateQuantity(1)} disabled={quantity >= maxQuantity()} class="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 disabled:opacity-50 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                  </button>
+                </div>
+              </div>
 
-			<!-- Наличие и склад -->
-			<div class="flex items-center gap-2.5 flex-wrap">
-				{#if isInStock}
-					<div class="flex items-center gap-1.5 px-2.5 py-1 bg-green-50 border border-green-200 rounded-xl text-[11px] md:text-xs">
-						<div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-						<span class="font-semibold text-green-700">В наличии: {part.available} шт</span>
-					</div>
-				{:else}
-					<div class="flex items-center gap-1.5 px-2.5 py-1 bg-orange-50 border border-orange-200 rounded-xl text-[11px] md:text-xs">
-						<svg class="w-3.5 h-3.5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-						</svg>
-						<span class="font-semibold text-orange-700">Под заказ</span>
-					</div>
-				{/if}
+              <!-- Add to Cart -->
+              <button
+                onclick={handleAddToCart}
+                disabled={isAddingToCart}
+                class="w-full btn-primary py-4 text-lg shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all"
+              >
+                {#if isAddingToCart}
+                  Добавлено ✓
+                {:else}
+                  Добавить в корзину — {formatUtils.formatPrice(totalPrice)}
+                {/if}
+              </button>
+              
+              <div class="flex items-center justify-center gap-2 text-sm text-green-600 font-medium">
+                <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                В наличии на складе {warehouseName} ({part.available} шт.)
+              </div>
+            </div>
+          {:else}
+            <button disabled class="w-full btn bg-gray-200 text-gray-500 cursor-not-allowed py-4 text-lg font-bold">
+              Нет в наличии
+            </button>
+          {/if}
+        </div>
 
-				{#if warehouseName}
-					<div class="flex items-center gap-1.5 text-[11px] md:text-xs text-gray-600">
-						<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
-						</svg>
-						{warehouseName}
-					</div>
-				{/if}
-			</div>
+        <!-- Description -->
+        {#if part.description}
+          <div class="prose prose-gray max-w-none">
+            <h3 class="text-lg font-bold text-gray-900 mb-3">Описание</h3>
+            <p class="text-gray-600 leading-relaxed">{part.description}</p>
+          </div>
+        {/if}
+      </div>
+    </div>
 
-			<!-- Описание (если есть) -->
-			{#if part.description}
-				<div class="card p-3 bg-blue-50 border-blue-100">
-					<h3 class="text-sm md:text-base font-semibold text-gray-900 mb-1.5 flex items-center gap-2">
-						<svg class="w-4 h-4 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-						</svg>
-						Описание
-					</h3>
-					<p class="text-[11px] md:text-xs text-gray-700 leading-snug">{part.description}</p>
-				</div>
-			{/if}
-		</div>
-
-		<!-- Правая колонка: Оплата / корзина -->
-		<div class="space-y-4 order-3 lg:order-3 max-w-xs w-full lg:ml-auto">
-			<!-- Блок покупки (компактный, в стиле маркетплейсов) -->
-			<div class="card p-3 md:p-4 bg-white border border-gray-200 md:sticky md:top-16">
-				<!-- Цена -->
-				<div class="mb-3">
-					<span class="block text-xl md:text-2xl font-bold text-gray-900">
-						{formatUtils.formatPrice(price)}
-					</span>
-					<p class="mt-1 text-[11px] md:text-xs text-gray-500">Цена указана за 1 шт.</p>
-				</div>
-
-				<!-- Количество + итого -->
-				<div class="mb-3">
-					<div class="flex items-center justify-between mb-1">
-						<span class="text-xs md:text-sm font-semibold text-gray-700">Количество</span>
-						<span class="text-[11px] md:text-xs text-gray-600">
-							Итого:
-							<span class="font-semibold text-gray-900">
-								{formatUtils.formatPrice(totalPrice)}
-							</span>
-						</span>
-					</div>
-
-					<div class="flex items-center gap-2">
-						<button
-							onclick={() => updateQuantity(-1)}
-							aria-label="Уменьшить количество"
-							disabled={quantity <= 1}
-							class="w-7 h-7 flex items-center justify-center rounded-lg border border-gray-300 hover:border-primary-500 hover:bg-primary-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-						>
-							<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"/>
-							</svg>
-						</button>
-
-						<input
-							id="quantity-input"
-							type="number"
-							bind:value={quantity}
-							min="1"
-							max={maxQuantity()}
-							onchange={(e) => {
-								const val = parseInt(e.target.value) || 1;
-								const max = maxQuantity();
-								quantity = Math.min(Math.max(1, val), max);
-							}}
-							class="flex-1 h-8 text-center text-sm md:text-base font-semibold text-gray-900 border border-gray-300 rounded-lg px-2 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition-all"
-						/>
-
-						<button
-							onclick={() => updateQuantity(1)}
-							aria-label="Увеличить количество"
-							disabled={quantity >= maxQuantity()}
-							class="w-7 h-7 flex items-center justify-center rounded-lg border border-gray-300 hover:border-primary-500 hover:bg-primary-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-						>
-							<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-							</svg>
-						</button>
-					</div>
-
-					{#if maxQuantity() > 0 && maxQuantity() < 99}
-						<p class="text-[11px] text-gray-500 mt-1.5">Максимум: {maxQuantity()} шт.</p>
-					{/if}
-					{#if cartQuantity > 0}
-						<p class="text-[11px] text-orange-600 mt-1.5">В корзине: {cartQuantity} шт.</p>
-					{/if}
-					{#if maxQuantity() === 0 && part?.available > 0}
-						<p class="text-[11px] text-red-600 mt-1.5">Весь товар уже в корзине</p>
-					{/if}
-				</div>
-
-				<!-- Кнопка В корзину -->
-				<button
-					onclick={handleAddToCart}
-					disabled={!isInStock || isAddingToCart || maxQuantity() <= 0}
-					class="w-full py-2 rounded-xl font-bold text-sm md:text-base transition-all duration-300 flex items-center justify-center gap-2
-						   {isInStock && maxQuantity() > 0
-						     ? 'bg-primary-600 text-white hover:bg-primary-700 hover:shadow-md' 
-						     : 'bg-gray-200 text-gray-500 cursor-not-allowed'}"
-				>
-					{#if isAddingToCart}
-						<svg class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-							<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-							<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-						</svg>
-						Добавление...
-					{:else if isInStock && maxQuantity() > 0}
-						<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
-						</svg>
-						Добавить в корзину
-					{:else if maxQuantity() === 0 && part?.available > 0}
-						<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-						</svg>
-						Весь товар в корзине
-					{:else}
-						<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-						</svg>
-						Нет в наличии
-					{/if}
-				</button>
-
-				<!-- Кнопка "К каталогу" (вторичная) -->
-				<div class="mt-3">
-					<a href="/catalog" class="w-full inline-flex items-center justify-center rounded-xl border border-gray-300 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
-						← К каталогу
-					</a>
-				</div>
-			</div>
-		</div>
-	</div>
-
-	<!-- Похожие товары -->
-	{#if similarParts.length > 0}
-		<div class="border-t border-gray-200 pt-12">
-			<h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
-				<svg class="w-7 h-7 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
-				</svg>
-				Похожие товары
-			</h2>
-			<div class="grid grid-cols-2 lg:grid-cols-4 gap-6">
-				{#each similarParts as similarPart}
-					<PartCard part={similarPart} />
-				{/each}
-			</div>
-		</div>
-	{/if}
-{/if}
+    <!-- Similar Products -->
+    {#if similarParts.length > 0}
+      <div class="mt-24 border-t border-gray-100 pt-16">
+        <h2 class="text-2xl font-bold text-gray-900 mb-8">Похожие товары</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+          {#each similarParts as item}
+            <PartCard part={item} />
+          {/each}
+        </div>
+      </div>
+    {/if}
+  {/if}
 </div>
-
-<style>
-	@keyframes slide-in-right {
-		from {
-			transform: translateX(100%);
-			opacity: 0;
-		}
-		to {
-			transform: translateX(0);
-			opacity: 1;
-		}
-	}
-	
-	.animate-slide-in-right {
-		animation: slide-in-right 0.3s ease-out;
-	}
-</style>
-

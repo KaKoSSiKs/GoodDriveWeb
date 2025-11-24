@@ -3,14 +3,15 @@
   
   let { message = '', type = 'success', duration = 3000, onClose = () => {} } = $props();
   
-  let visible = $state(true);
+  let visible = $state(false); // Start invisible for animation
   let progress = $state(100);
   
+  // Updated styles for "Premium Minimal" look
   const typeStyles = {
-    success: 'bg-green-500 text-white',
-    error: 'bg-red-500 text-white',
-    warning: 'bg-yellow-500 text-white',
-    info: 'bg-blue-500 text-white'
+    success: 'bg-gray-900 text-white shadow-gray-900/20',
+    error: 'bg-red-600 text-white shadow-red-600/20',
+    warning: 'bg-orange-500 text-white shadow-orange-500/20',
+    info: 'bg-blue-600 text-white shadow-blue-600/20'
   };
   
   const icons = {
@@ -22,10 +23,12 @@
   
   function close() {
     visible = false;
-    setTimeout(onClose, 300);
+    setTimeout(onClose, 300); // Wait for fade out
   }
   
   onMount(() => {
+    setTimeout(() => visible = true, 10); // Trigger enter animation
+
     const interval = 50;
     const steps = duration / interval;
     const decrement = 100 / steps;
@@ -42,18 +45,23 @@
   });
 </script>
 
-{#if visible}
-  <div class="flex items-center space-x-3 {typeStyles[type]} px-6 py-4 rounded-lg shadow-2xl min-w-[300px] max-w-md" role="alert">
-    <div class="flex-shrink-0">{@html icons[type]}</div>
-    <div class="flex-1"><p class="font-medium">{message}</p></div>
-    <button onclick={close} class="flex-shrink-0 hover:opacity-75" aria-label="Закрыть">
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-      </svg>
-    </button>
-    <div class="absolute bottom-0 left-0 h-1 bg-white/30 w-full">
-      <div class="h-full bg-white/50 transition-all ease-linear" style="width: {progress}%"></div>
-    </div>
+<div 
+  class="relative flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-2xl min-w-[300px] max-w-md backdrop-blur-md transition-all duration-300 transform translate-y-0 {typeStyles[type]} {visible ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-95'}"
+  role="alert"
+  style="margin-bottom: 0.75rem;"
+>
+  <div class="flex-shrink-0">{@html icons[type]}</div>
+  
+  <div class="flex-1 text-sm font-medium leading-snug">{message}</div>
+  
+  <button onclick={close} class="flex-shrink-0 p-1 hover:bg-white/20 rounded-full transition-colors" aria-label="Закрыть">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+    </svg>
+  </button>
+  
+  <!-- Progress bar (Subtle) -->
+  <div class="absolute bottom-0 left-2 right-2 h-[2px] bg-white/10 rounded-full overflow-hidden">
+    <div class="h-full bg-white/40 transition-all ease-linear rounded-full" style="width: {progress}%"></div>
   </div>
-{/if}
-
+</div>

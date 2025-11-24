@@ -82,10 +82,10 @@
   {@render children()}
 {:else}
   <!-- Обычный сайт с header/footer -->
-  <div class="min-h-screen flex flex-col">
+  <div class="min-h-screen flex flex-col bg-[#F8F9FA]">
     <Header />
     
-    <main class="flex-1">
+    <main class="flex-1 pt-0">
       {@render children()}
     </main>
     
@@ -105,4 +105,3 @@
     font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
   }
 </style>
-

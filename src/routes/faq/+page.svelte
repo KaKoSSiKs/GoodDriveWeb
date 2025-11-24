@@ -98,7 +98,6 @@
     openFaqId = openFaqId === id ? null : id;
   }
   
-  // JSON-LD для FAQ
   const faqJsonLd = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
@@ -115,8 +114,8 @@
   };
   
   const breadcrumbs = [
-    { name: 'Главная', url: 'https://gooddrive.com/' },
-    { name: 'FAQ', url: 'https://gooddrive.com/faq' }
+    { name: 'Главная', url: '/' },
+    { name: 'FAQ', url: '/faq' }
   ];
 </script>
 
@@ -130,103 +129,82 @@
   jsonLd={faqJsonLd}
 />
 
-<div class="container-custom py-12">
-  <!-- Хлебные крошки -->
-  <nav class="flex items-center space-x-2 text-sm text-gray-600 mb-8">
-    <a href="/" class="hover:text-primary-600 transition-colors">Главная</a>
-    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-    </svg>
-    <span class="text-gray-900 font-medium">FAQ</span>
-  </nav>
-
-  <!-- Заголовок -->
-  <div class="text-center mb-12">
-    <h1 class="text-4xl md:text-5xl font-bold text-dark-500 mb-4">
-      Часто задаваемые вопросы
+<div class="container-custom py-12 md:py-20">
+  <!-- Header -->
+  <div class="text-center max-w-4xl mx-auto mb-20">
+    <span class="text-sm font-bold uppercase tracking-widest text-gray-500 mb-4 block">FAQ</span>
+    <h1 class="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
+      Ответы на вопросы
     </h1>
-    <p class="text-xl text-gray-600 max-w-2xl mx-auto">
-      Ответы на популярные вопросы о покупке автозапчастей
+    <p class="text-xl text-gray-600 leading-relaxed max-w-2xl mx-auto">
+      Мы собрали самые популярные вопросы наших клиентов, чтобы помочь вам быстрее разобраться в деталях.
     </p>
   </div>
 
-  <!-- FAQ по категориям -->
-  <div class="max-w-4xl mx-auto space-y-12">
+  <!-- FAQ List -->
+  <div class="max-w-3xl mx-auto space-y-16">
     {#each faqCategories as category}
-      <section>
-        <h2 class="text-2xl font-bold text-dark-500 mb-6 flex items-center">
-          <span class="w-2 h-8 bg-primary-600 rounded mr-3"></span>
+      <div>
+        <h2 class="text-2xl font-bold text-gray-900 mb-8 flex items-center">
+          <span class="w-1.5 h-8 bg-gray-900 rounded-full mr-4"></span>
           {category.title}
         </h2>
         
         <div class="space-y-4">
           {#each category.questions as faq}
-            <div class="card overflow-hidden">
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-md {openFaqId === faq.id ? 'ring-2 ring-gray-100' : ''}">
               <button
                 onclick={() => toggleFaq(faq.id)}
-                class="w-full p-6 text-left flex items-center justify-between hover:bg-gray-50 transition-colors"
+                class="w-full p-6 text-left flex items-center justify-between gap-4"
                 aria-expanded={openFaqId === faq.id}
               >
-                <h3 class="text-lg font-semibold text-dark-500 pr-4">
+                <h3 class="text-lg font-bold text-gray-900 leading-snug">
                   {faq.question}
                 </h3>
-                <svg
-                  class="w-6 h-6 text-primary-600 flex-shrink-0 transition-transform duration-300"
-                  style="transform: rotate({openFaqId === faq.id ? '180deg' : '0deg'})"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                </svg>
+                <div class="flex-shrink-0 w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center transition-transform duration-300 {openFaqId === faq.id ? 'bg-gray-900 text-white rotate-180' : 'text-gray-400'}">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                  </svg>
+                </div>
               </button>
               
               {#if openFaqId === faq.id}
                 <div class="px-6 pb-6 animate-slide-down">
-                  <div class="pt-4 border-t border-gray-200">
-                    <p class="text-gray-700 leading-relaxed">
-                      {faq.answer}
-                    </p>
-                  </div>
+                  <p class="text-gray-600 leading-relaxed pt-2 border-t border-gray-50">
+                    {faq.answer}
+                  </p>
                 </div>
               {/if}
             </div>
           {/each}
         </div>
-      </section>
+      </div>
     {/each}
   </div>
 
-  <!-- Блок "Не нашли ответ?" -->
-  <div class="mt-16 card p-8 bg-gradient-to-br from-primary-50 to-white border-primary-100">
-    <div class="text-center">
-      <div class="w-20 h-20 bg-primary-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
-        <svg class="w-10 h-10 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-        </svg>
-      </div>
-      
-      <h2 class="text-2xl font-bold text-dark-500 mb-4">
-        Не нашли ответ на свой вопрос?
-      </h2>
-      <p class="text-gray-600 mb-6 max-w-xl mx-auto">
-        Наши специалисты готовы помочь вам! Свяжитесь с нами любым удобным способом
-      </p>
-      
-      <div class="flex flex-col sm:flex-row gap-4 justify-center">
-        <a href="tel:+79227081553" class="btn-primary">
-          <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
-          </svg>
-          Позвонить
-        </a>
+  <!-- Contact Box -->
+  <div class="max-w-3xl mx-auto mt-20">
+    <div class="bg-gray-900 rounded-3xl p-8 md:p-12 text-center relative overflow-hidden">
+      <!-- Decorative elements -->
+      <div class="absolute top-0 right-0 -mr-12 -mt-12 w-48 h-48 bg-white opacity-5 rounded-full blur-3xl"></div>
+      <div class="absolute bottom-0 left-0 -ml-12 -mb-12 w-48 h-48 bg-gray-500 opacity-10 rounded-full blur-3xl"></div>
+
+      <div class="relative z-10">
+        <h2 class="text-2xl md:text-3xl font-bold text-white mb-4">
+          Не нашли ответ на свой вопрос?
+        </h2>
+        <p class="text-gray-400 mb-8 max-w-lg mx-auto text-lg">
+          Наши специалисты всегда на связи и готовы проконсультировать вас по любому вопросу.
+        </p>
         
-        <a href="mailto:89227081553@mail.ru" class="btn-outline">
-          <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-          </svg>
-          Написать
-        </a>
+        <div class="flex flex-col sm:flex-row gap-4 justify-center">
+          <a href="tel:+79227081553" class="inline-flex items-center justify-center px-8 py-3.5 bg-white text-gray-900 rounded-full font-bold hover:bg-gray-100 transition-colors">
+            Позвонить нам
+          </a>
+          <a href="mailto:89227081553@mail.ru" class="inline-flex items-center justify-center px-8 py-3.5 border border-gray-700 text-white rounded-full font-bold hover:bg-gray-800 transition-colors">
+            Написать на почту
+          </a>
+        </div>
       </div>
     </div>
   </div>
@@ -236,7 +214,7 @@
   @keyframes slide-down {
     from {
       opacity: 0;
-      transform: translateY(-10px);
+      transform: translateY(-8px);
     }
     to {
       opacity: 1;
@@ -248,4 +226,3 @@
     animation: slide-down 0.3s ease-out;
   }
 </style>
-

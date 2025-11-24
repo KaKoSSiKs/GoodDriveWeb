@@ -13,7 +13,6 @@
   // Звук уведомления
   function playNotificationSound() {
     try {
-      // Создаём простой бип
       if (!audioContext) {
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
       }
@@ -24,7 +23,7 @@
       oscillator.connect(gainNode);
       gainNode.connect(audioContext.destination);
       
-      oscillator.frequency.value = 800; // Частота звука
+      oscillator.frequency.value = 800;
       oscillator.type = 'sine';
       
       gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
@@ -42,7 +41,6 @@
       const response = await notificationsApi.getUnreadCount();
       const newCount = response.count || 0;
       
-      // Если количество увеличилось - воспроизводим звук (играем звук при любом новом уведомлении)
       if (newCount > lastCount && lastCount >= 0) {
         playNotificationSound();
       }
@@ -67,18 +65,15 @@
   }
   
   async function handleNotificationClick(notification) {
-    // Отмечаем как прочитанное
     try {
       await notificationsApi.markAsRead(notification.id);
       notification.is_read = true;
       notifications = [...notifications];
       
-      // Переходим по ссылке если есть
       if (notification.link) {
         window.location.href = notification.link;
       }
       
-      // Обновляем счётчик
       loadUnreadCount();
     } catch (error) {
       console.error('Error marking notification as read:', error);
@@ -118,33 +113,29 @@
   
   function getPriorityColor(priority) {
     const colors = {
-      critical: 'text-red-600',
-      high: 'text-orange-600',
-      medium: 'text-blue-600',
-      low: 'text-gray-600'
+      critical: 'text-red-600 bg-red-50 border-red-100',
+      high: 'text-orange-600 bg-orange-50 border-orange-100',
+      medium: 'text-blue-600 bg-blue-50 border-blue-100',
+      low: 'text-gray-600 bg-gray-50 border-gray-100'
     };
-    return colors[priority] || 'text-gray-600';
+    return colors[priority] || 'text-gray-600 bg-gray-50 border-gray-100';
   }
   
   function getTypeIcon(type) {
     const icons = {
-      new_order: '🛒',
+      new_order: '🛍️',
       low_stock: '⚠️',
       zero_stock: '🚫',
-      stuck_order: '⏰',
-      system: 'ℹ️'
+      stuck_order: '⏳',
+      system: '⚙️'
     };
     return icons[type] || 'ℹ️';
   }
   
   onMount(() => {
-    // Загружаем при монтировании
     loadUnreadCount();
-    
-    // Опрашиваем сервер каждые 10 секунд
     pollingInterval = setInterval(loadUnreadCount, 10000);
     
-    // Закрываем dropdown при клике вне его
     const handleClickOutside = (event) => {
       if (showDropdown && !event.target.closest('.notification-bell')) {
         showDropdown = false;
@@ -167,93 +158,94 @@
 <div class="notification-bell relative">
   <button
     onclick={toggleDropdown}
-    class="relative p-2 rounded-lg hover:bg-gray-100 transition-colors"
+    class="relative p-2.5 rounded-xl hover:bg-gray-100 transition-colors text-gray-600 hover:text-gray-900"
     aria-label="Уведомления"
   >
-    <!-- Иконка колокольчика -->
-    <svg class="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
     </svg>
     
-    <!-- Счётчик непрочитанных -->
     {#if unreadCount > 0}
-      <span class="absolute top-0 right-0 inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-red-600 rounded-full animate-pulse">
+      <span class="absolute top-1 right-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-red-600 rounded-full border-2 border-white animate-pulse">
         {unreadCount > 99 ? '99+' : unreadCount}
       </span>
     {/if}
   </button>
   
-  <!-- Dropdown с уведомлениями -->
+  <!-- Dropdown -->
   {#if showDropdown}
-    <div class="absolute right-0 mt-2 w-96 bg-white rounded-xl shadow-2xl border border-gray-200 z-50">
+    <div class="absolute right-0 mt-3 w-96 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
       <!-- Заголовок -->
-      <div class="flex items-center justify-between p-4 border-b border-gray-200">
-        <h3 class="text-lg font-semibold text-gray-900">Уведомления</h3>
-        <div class="flex items-center space-x-2">
+      <div class="flex items-center justify-between p-4 border-b border-gray-100 bg-gray-50/50">
+        <h3 class="font-bold text-gray-900">Уведомления</h3>
+        <div class="flex items-center gap-3">
           {#if unreadCount > 0}
             <button
               onclick={handleMarkAllRead}
-              class="text-xs text-primary-600 hover:text-primary-700"
+              class="text-xs font-medium text-blue-600 hover:text-blue-700 transition-colors"
             >
               Прочитать все
             </button>
           {/if}
           <button
             onclick={handleClearAll}
-            class="text-xs text-gray-600 hover:text-gray-700"
+            class="text-xs font-medium text-gray-500 hover:text-gray-700 transition-colors"
           >
             Очистить
           </button>
         </div>
       </div>
       
-      <!-- Список уведомлений -->
-      <div class="max-h-96 overflow-y-auto">
+      <!-- Список -->
+      <div class="max-h-[400px] overflow-y-auto">
         {#if isLoading}
-          <div class="p-8 text-center">
-            <div class="animate-spin w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full mx-auto"></div>
+          <div class="p-8 text-center flex justify-center">
+            <div class="animate-spin w-6 h-6 border-2 border-gray-200 border-t-gray-900 rounded-full"></div>
           </div>
         {:else if notifications.length === 0}
-          <div class="p-8 text-center text-gray-500">
-            <p>Нет уведомлений</p>
+          <div class="p-12 text-center text-gray-400">
+            <svg class="w-12 h-12 mx-auto mb-3 text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+            </svg>
+            <p class="text-sm">Нет новых уведомлений</p>
           </div>
         {:else}
-          {#each notifications as notification}
-            <button
-              onclick={() => handleNotificationClick(notification)}
-              class="w-full text-left p-4 hover:bg-gray-50 transition-colors border-b border-gray-100 {notification.is_read ? 'opacity-60' : ''}"
-            >
-              <div class="flex items-start space-x-3">
-                <span class="text-2xl flex-shrink-0">{getTypeIcon(notification.type)}</span>
+          <div class="divide-y divide-gray-50">
+            {#each notifications as notification}
+              <button
+                onclick={() => handleNotificationClick(notification)}
+                class="w-full text-left p-4 hover:bg-gray-50 transition-all duration-200 flex gap-3 group {notification.is_read ? 'opacity-60 grayscale-[0.5]' : ''}"
+              >
+                <div class="text-2xl flex-shrink-0 bg-gray-100 w-10 h-10 rounded-xl flex items-center justify-center">
+                  {getTypeIcon(notification.type)}
+                </div>
+                
                 <div class="flex-1 min-w-0">
-                  <div class="flex items-center justify-between mb-1">
-                    <h4 class="text-sm font-semibold text-gray-900 truncate">
+                  <div class="flex items-start justify-between gap-2 mb-1">
+                    <h4 class="text-sm font-bold text-gray-900 truncate pr-2">
                       {notification.title}
                     </h4>
-                    {#if !notification.is_read}
-                      <span class="w-2 h-2 bg-primary-500 rounded-full flex-shrink-0 ml-2"></span>
-                    {/if}
+                    <span class="text-[10px] text-gray-400 whitespace-nowrap mt-0.5">
+                      {new Date(notification.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
                   </div>
-                  <p class="text-xs text-gray-600 line-clamp-2 mb-1">
+                  
+                  <p class="text-xs text-gray-600 line-clamp-2 mb-2 leading-relaxed">
                     {notification.message}
                   </p>
+                  
                   <div class="flex items-center justify-between">
-                    <span class="text-xs {getPriorityColor(notification.priority)}">
+                    <span class="text-[10px] px-2 py-0.5 rounded-md border font-medium {getPriorityColor(notification.priority)}">
                       {notification.priority_display}
                     </span>
-                    <span class="text-xs text-gray-400">
-                      {new Date(notification.created_at).toLocaleString('ru-RU', { 
-                        day: '2-digit', 
-                        month: '2-digit', 
-                        hour: '2-digit', 
-                        minute: '2-digit' 
-                      })}
-                    </span>
+                    {#if !notification.is_read}
+                      <span class="w-2 h-2 bg-blue-500 rounded-full"></span>
+                    {/if}
                   </div>
                 </div>
-              </div>
-            </button>
-          {/each}
+              </button>
+            {/each}
+          </div>
         {/if}
       </div>
     </div>
@@ -268,4 +260,3 @@
     overflow: hidden;
   }
 </style>
-

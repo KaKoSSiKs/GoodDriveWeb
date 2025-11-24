@@ -1,21 +1,14 @@
 <script>
-  // Пропсы компонента (Svelte 5 синтаксис)
   let {
     currentPage = 1,
     totalPages = 1,
     onPageChange = () => {}
   } = $props();
   
-  // Производные значения
   let hasPages = $derived(totalPages > 1);
-  let showFirstPage = $derived(currentPage > 3);
-  let showLastPage = $derived(currentPage < totalPages - 2);
-  let showPrevEllipsis = $derived(currentPage > 4);
-  let showNextEllipsis = $derived(currentPage < totalPages - 3);
   
-  // Вычисляем диапазон страниц для отображения
-  let pageRange = $derived(() => {
-    const delta = 2; // Количество страниц с каждой стороны от текущей
+  let pageRange = $derived.by(() => {
+    const delta = 2;
     const range = [];
     const rangeWithDots = [];
     
@@ -42,7 +35,6 @@
     return rangeWithDots;
   });
   
-  // Обработчики
   function handlePageChange(page) {
     if (page >= 1 && page <= totalPages && page !== currentPage) {
       onPageChange(page);
@@ -59,30 +51,31 @@
 </script>
 
 {#if hasPages}
-  <nav class="flex items-center justify-center space-x-1" aria-label="Пагинация">
-    <!-- Кнопка "Назад" -->
+  <nav class="flex items-center justify-center gap-2 mt-8" aria-label="Пагинация">
+    <!-- Previous Button -->
     <button
       onclick={handlePrevPage}
       disabled={currentPage === 1}
-      class="btn-outline disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
-      aria-label="Предыдущая страница"
+      class="w-10 h-10 flex items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+      aria-label="Назад"
     >
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
       </svg>
-      <span class="hidden sm:inline">Назад</span>
     </button>
     
-    <!-- Номера страниц -->
-    <div class="flex items-center space-x-1">
-      {#each pageRange() as page}
+    <!-- Page Numbers -->
+    <div class="flex items-center gap-1">
+      {#each pageRange as page}
         {#if page === '...'}
-          <span class="px-3 py-2 text-neutral-500">...</span>
+          <span class="w-10 h-10 flex items-center justify-center text-gray-400">...</span>
         {:else}
           <button
             onclick={() => handlePageChange(page)}
-            class="btn {page === currentPage ? 'btn-primary' : 'btn-outline'}"
-            aria-label="Страница {page}"
+            class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-all
+              {page === currentPage 
+                ? 'bg-gray-900 text-white shadow-md' 
+                : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}"
             aria-current={page === currentPage ? 'page' : undefined}
           >
             {page}
@@ -91,24 +84,16 @@
       {/each}
     </div>
     
-    <!-- Кнопка "Вперед" -->
+    <!-- Next Button -->
     <button
       onclick={handleNextPage}
       disabled={currentPage === totalPages}
-      class="btn-outline disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
-      aria-label="Следующая страница"
+      class="w-10 h-10 flex items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+      aria-label="Вперед"
     >
-      <span class="hidden sm:inline">Вперед</span>
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
       </svg>
     </button>
   </nav>
-  
-  <!-- Информация о страницах -->
-  <div class="text-center mt-4 text-sm text-neutral-600">
-    Страница {currentPage} из {totalPages}
-  </div>
 {/if}
-
-

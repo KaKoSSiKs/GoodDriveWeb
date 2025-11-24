@@ -8,19 +8,19 @@
   import SeoHead from '$lib/components/SeoHead.svelte';
   import { partsApi, brandsApi, warehousesApi, cartUtils } from '$lib/utils/api.js';
   import { formatUtils } from '$lib/utils/api.js';
-  import { generateCollectionJsonLd, generateBreadcrumbJsonLd } from '$lib/utils/seo.js';
+  import { generateCollectionJsonLd } from '$lib/utils/seo.js';
+  import { toastStore } from '$lib/stores/toast.js';
   
-  // Реактивное состояние
-let parts = $state([]);
+  let parts = $state([]);
   let brands = $state([]);
   let warehouses = $state([]);
   let isLoading = $state(true);
-  let isLoadingMore = $state(false);
   let currentPage = $state(1);
   let totalPages = $state(1);
   let totalCount = $state(0);
-  let top100PartIds = $state(new Set()); // ID топ 100 товаров для "Хит продаж"
+  let top100PartIds = $state(new Set());
   let referencesLoaded = $state(false);
+
   function normalizeString(value) {
     return value?.toString().trim().toLowerCase().replace(/[\s\-_/]+/g, '');
   }
@@ -40,10 +40,8 @@ let parts = $state([]);
       .filter(Boolean);
   }
   
-  // Получаем текущий URL из store (только на верхнем уровне)
   const currentUrl = $derived($page.url);
   
-  // Получаем начальные значения фильтров из URL (на верхнем уровне)
   const initialFilters = {
     search: ($page.url.searchParams.get('search') || '').replace(/\+/g, ' '),
     category: $page.url.searchParams.get('category') || '',
@@ -68,16 +66,8 @@ let parts = $state([]);
   
   let filters = $state(initialFilters);
   
-  // Производные значения
   const hasParts = $derived(parts.length > 0);
-  const hasFilters = $derived(
-    filters.search || filters.brand || filters.warehouse ||
-    filters.price_min || filters.price_max || filters.in_stock ||
-    filters.vehicle_brand || filters.vehicle_model ||
-    filters.vehicle_modification || filters.vehicle_year
-  );
   
-  // SEO данные
   const seoData = $derived({
     title: filters.search ? `Поиск "${filters.search}"` : 'Каталог автозапчастей',
     description: filters.search 
@@ -90,20 +80,17 @@ let parts = $state([]);
     type: 'website'
   });
   
-  // JSON-LD для коллекции товаров
   const collectionJsonLd = $derived(generateCollectionJsonLd(parts, {
     url: currentUrl.href,
     totalCount: totalCount
   }));
   
-  // Хлебные крошки
   const breadcrumbs = $derived([
     { name: 'Главная', url: '/' },
     { name: 'Каталог', url: '/catalog' },
     ...(filters.search ? [{ name: `Поиск: ${filters.search}`, url: `/catalog?search=${encodeURIComponent(filters.search)}` }] : [])
   ]);
   
-  // Загрузка данных товаров
   function getVehicleTokens() {
     const tokens = [];
     const addTokens = (value) => {
@@ -132,7 +119,6 @@ let parts = $state([]);
       if (title.includes(token)) {
         score += token.length >= 4 ? 3 : 2;
       } else {
-        // проверяем совпадение по словам
         const regex = new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
         if (regex.test(title)) {
           score += 1;
@@ -149,17 +135,10 @@ let parts = $state([]);
     if (!referencesLoaded) {
       await loadReferences();
     }
-    if (currentPage === 1) {
-      isLoading = true;
-    } else {
-      isLoadingMore = true;
-    }
+    isLoading = true;
 
     try {
-      // Строим параметры запроса
       const params = {};
-      
-      // Добавляем фильтры, если они есть
       let searchTerm = filters.search && filters.search.trim() ? filters.search.trim() : '';
       if (!searchTerm) {
         const vehicleSearchTerms = [
@@ -187,7 +166,6 @@ let parts = $state([]);
       if (filters.warehouse) {
         params.warehouse = filters.warehouse;
       }
-      // Цена может приходить как строка или как число — обрабатываем безопасно
       const rawPriceMin = filters.price_min;
       const rawPriceMax = filters.price_max;
 
@@ -204,14 +182,10 @@ let parts = $state([]);
         }
       }
       
-      // Загружаем все товары с фильтрами (но без ограничения по наличию)
-      // Очищаем пустые значения из параметров
       const cleanParams = {};
       Object.keys(params).forEach(key => {
         const value = params[key];
-        // Пропускаем пустые строки, null, undefined
         if (value !== '' && value !== null && value !== undefined) {
-          // Для числовых параметров проверяем, что это валидное число
           if ((key === 'price_min' || key === 'price_max') && value !== '') {
             const numValue = parseFloat(value);
             if (!isNaN(numValue) && numValue >= 0) {
@@ -223,16 +197,12 @@ let parts = $state([]);
         }
       });
       
-      // Удаляем page_size из cleanParams, если он там есть, чтобы использовать наш фиксированный размер
       delete cleanParams.page_size;
-      delete cleanParams.page; // Также удаляем page, так как мы всегда используем page: 1
-      // Пробрасываем выбранную сортировку на backend
+      delete cleanParams.page; 
       if (filters.ordering) {
         cleanParams.ordering = filters.ordering;
       }
       
-      console.log('Загрузка товаров с параметрами:', { ...cleanParams, page: currentPage, page_size: PAGE_SIZE });
-
       const response = await partsApi.getParts({
         ...cleanParams,
         page: currentPage,
@@ -241,33 +211,7 @@ let parts = $state([]);
 
       let allParts = Array.isArray(response?.results) ? response.results : [];
       const fetchedCount = response?.count ?? allParts.length ?? 0;
-
-      console.log('Извлечено товаров:', allParts.length, 'Всего по запросу:', fetchedCount);
       
-      // Логируем первые несколько товаров для проверки структуры изображений
-      if (allParts.length > 0) {
-        console.log('Товары с изображениями (первые 3):', 
-          allParts.slice(0, 3).map(p => ({
-            id: p.id,
-            title: p.title,
-            hasImages: !!p.images,
-            imagesLength: p.images?.length || 0,
-            firstImage: p.images?.[0] ? {
-              id: p.images[0].id,
-              image_url: p.images[0].image_url?.substring(0, 100),
-              imageUrl: p.images[0].imageUrl?.substring(0, 100),
-              url: p.images[0].url?.substring(0, 100),
-              alt_text: p.images[0].alt_text,
-              order_index: p.images[0].order_index
-            } : null,
-            allImageKeys: p.images?.[0] ? Object.keys(p.images[0]) : []
-          }))
-        );
-      }
-      
-      // Поддержка сортировки: backend отдаёт в выбранном порядке,
-      // здесь лишь гарантируем, что товары без наличия идут внизу,
-      // сохраняя относительный порядок из результата API.
       const inStockParts = allParts.filter(p => (Number(p.available) || 0) > 0);
       const outOfStockParts = allParts.filter(p => (Number(p.available) || 0) <= 0);
 
@@ -276,7 +220,6 @@ let parts = $state([]);
         available: Number(part.available) || 0
       }));
       
-      // Fallback: если нет товаров, пробуем подгрузить по бренду и ранжировать по совпадению
       if (sortedParts.length === 0) {
         const tokens = getVehicleTokens();
         let fallbackParts = [];
@@ -303,7 +246,6 @@ let parts = $state([]);
         }
         
         if (fallbackParts.length > 0) {
-            // Ранжируем по релевантности, но сохраняем правило "в наличии сверху"
             const withScores = fallbackParts.map(part => ({
               ...part,
               available: Number(part.available) || 0,
@@ -315,8 +257,6 @@ let parts = $state([]);
           }
 
         if (!sortedParts || sortedParts.length === 0) {
-          // Если даже fallback ничего не дал, показываем все товары,
-          // при этом "нет в наличии" внизу без дополнительной сортировки
           sortedParts = [...inStockParts, ...outOfStockParts].map(part => ({
             ...part,
             available: Number(part.available) || 0
@@ -333,42 +273,24 @@ let parts = $state([]);
       totalPages = Math.ceil((fetchedCount || sortedParts.length) / PAGE_SIZE);
       totalCount = fetchedCount || sortedParts.length;
       
-      console.log('Товары обработаны:', {
-        sortedPartsCount: sortedParts.length,
-        currentPage,
-        totalPages,
-        totalCount
-      });
     } catch (error) {
       console.error('Ошибка загрузки товаров:', error);
-      console.error('Детали ошибки:', error.message, error.stack);
-      
-      // Определяем тип ошибки для более понятного сообщения
       let errorMessage = 'Ошибка загрузки товаров. Попробуйте позже.';
       if (error.message) {
         if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
           errorMessage = 'Ошибка подключения к серверу. Проверьте подключение к интернету.';
-        } else if (error.message.includes('Database') || error.message.includes('Prisma')) {
-          errorMessage = 'Ошибка подключения к базе данных. Обратитесь к администратору.';
-        } else if (error.message.includes('Validation')) {
-          errorMessage = 'Ошибка валидации данных. Попробуйте обновить страницу.';
-        } else {
-          errorMessage = `Ошибка: ${error.message}`;
         }
       }
       
-      // Показываем уведомление об ошибке
-      alert(errorMessage);
+      toastStore.error(errorMessage);
       parts = [];
       totalCount = 0;
       totalPages = 1;
     } finally {
       isLoading = false;
-      isLoadingMore = false;
     }
   }
 
-  // Загрузка справочников
   async function loadReferences() {
     try {
       const [brandsData, warehousesData] = await Promise.all([
@@ -390,12 +312,10 @@ let parts = $state([]);
     }
   }
   
-  // Загрузка топ 100 товаров для "Хит продаж"
   async function loadTop100Products() {
     try {
       const productsStats = await fetch('/api/analytics/products?limit=100').then(r => r.json());
       if (productsStats.success && productsStats.topProducts && productsStats.topProducts.length > 0) {
-        // Получаем ID топ 100 товаров
         top100PartIds = new Set(productsStats.topProducts.map(p => p.partId));
       }
     } catch (error) {
@@ -403,18 +323,15 @@ let parts = $state([]);
     }
   }
 
-  // Обработчики
   function handleFilterChange(newFilters) {
     filters = newFilters;
     currentPage = 1;
     
-    // Обновляем URL без перезагрузки страницы
     const url = new URL(currentUrl);
     Object.keys(newFilters).forEach(key => {
       const paramName = vehicleParamMap[key] || key;
       const value = newFilters[key];
       if (value && value !== false) {
-        // Правильно кодируем search параметр (пробелы в +)
         if (key === 'search' && typeof value === 'string') {
           url.searchParams.set(paramName, value.replace(/\s+/g, '+'));
         } else {
@@ -425,9 +342,7 @@ let parts = $state([]);
       }
     });
     
-    // Обновляем URL
     window.history.replaceState({}, '', url);
-    
     loadParts();
   }
 
@@ -448,7 +363,6 @@ let parts = $state([]);
     };
     currentPage = 1;
     
-    // Очищаем URL параметры
     const url = new URL(currentUrl);
     url.search = '';
     window.history.replaceState({}, '', url);
@@ -458,8 +372,6 @@ let parts = $state([]);
 
   function handlePageChange(page) {
     currentPage = page;
-    
-    // Обновляем URL с номером страницы
     const url = new URL(currentUrl);
     if (page > 1) {
       url.searchParams.set('page', page);
@@ -467,26 +379,15 @@ let parts = $state([]);
       url.searchParams.delete('page');
     }
     window.history.replaceState({}, '', url);
-    
     loadParts();
   }
 
   function handleAddToCart(event) {
     const { part } = event.detail;
     cartUtils.addToCart(part);
-
-    // Показываем уведомление
-    const notification = document.createElement('div');
-    notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
-    notification.textContent = `Добавлено в корзину: ${part.title}`;
-    document.body.appendChild(notification);
-
-    setTimeout(() => {
-      notification.remove();
-    }, 3000);
+    toastStore.success(`Товар "${part.title}" добавлен в корзину`);
   }
 
-  // Функция для обновления фильтров из URL
   function updateFiltersFromUrl() {
     const urlSearch = ($page.url.searchParams.get('search') || '').replace(/\+/g, ' ');
     const urlCategory = $page.url.searchParams.get('category') || '';
@@ -498,7 +399,6 @@ let parts = $state([]);
     const urlOrdering = $page.url.searchParams.get('ordering') || '-created_at';
     const urlPage = parseInt($page.url.searchParams.get('page') || '1');
     
-    // Обновляем фильтры
     filters = {
       search: urlSearch,
       category: urlCategory,
@@ -516,20 +416,15 @@ let parts = $state([]);
     currentPage = urlPage;
   }
   
-  // Обновление фильтров при изменении URL через afterNavigate
   afterNavigate(async () => {
     updateFiltersFromUrl();
-    // Загружаем товары после обновления фильтров
     await ensureReferencesLoaded();
     await loadTop100Products();
     await loadParts();
   });
   
-  // Инициализация
   onMount(async () => {
-    // Обновляем фильтры из URL при первой загрузке
     updateFiltersFromUrl();
-    
     await ensureReferencesLoaded();
     await loadTop100Products();
     await loadParts();
@@ -546,107 +441,71 @@ let parts = $state([]);
   jsonLd={collectionJsonLd}
 />
 
-<div class="container-custom py-4 md:py-6">
-  <!-- Заголовок -->
-  <div class="mb-4 md:mb-6">
-    <h1 class="text-xl md:text-2xl font-bold text-neutral-900 mb-1">
-      {filters.search ? `Поиск: "${filters.search}"` : 'Каталог автозапчастей'}
+<div class="container-custom py-8 md:py-12">
+  <!-- Header & Title -->
+  <div class="mb-8">
+    <h1 class="text-2xl md:text-4xl font-bold text-gray-900 mb-2 tracking-tight">
+      {filters.search ? `Результаты поиска: "${filters.search}"` : 'Каталог запчастей'}
     </h1>
-    <p class="text-sm md:text-base text-neutral-600">
+    <p class="text-gray-500">
       {#if isLoading}
-        Загрузка...
+        Загрузка товаров...
       {:else}
-        Найдено товаров: {formatUtils.formatNumber(totalCount)}
+        Найдено {formatUtils.formatNumber(totalCount)} товаров
       {/if}
     </p>
   </div>
 
-  <div class="flex flex-col lg:flex-row gap-4 lg:gap-6">
-    <!-- Фильтры -->
-    <aside class="lg:w-64 xl:w-72">
-      <CatalogFilters
-        {brands}
-        {warehouses}
-        {filters}
-        onFilterChange={handleFilterChange}
-        onClearFilters={handleClearFilters}
-      />
+  <div class="flex flex-col lg:flex-row gap-8">
+    <!-- Filters Sidebar -->
+    <aside class="lg:w-72 flex-shrink-0">
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sticky top-32">
+        <CatalogFilters
+          {brands}
+          {warehouses}
+          {filters}
+          onFilterChange={handleFilterChange}
+          onClearFilters={handleClearFilters}
+        />
+      </div>
     </aside>
 
-    <!-- Товары -->
-    <main class="flex-1">
+    <!-- Products Grid -->
+    <main class="flex-1 min-w-0">
       {#if isLoading}
-        <!-- Скелетон загрузки -->
-        <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-3 items-stretch">
-          {#each Array(12) as _}
-            <div class="card p-3 animate-pulse">
-              <div class="bg-neutral-200 h-32 rounded-lg mb-2"></div>
-              <div class="bg-neutral-200 h-3 rounded mb-1.5"></div>
-              <div class="bg-neutral-200 h-3 rounded w-3/4 mb-2"></div>
-              <div class="bg-neutral-200 h-5 rounded w-1/2"></div>
-            </div>
+        <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-6">
+          {#each Array(9) as _}
+            <div class="h-[380px] bg-white rounded-2xl animate-pulse border border-gray-100"></div>
           {/each}
         </div>
       {:else if hasParts}
-        <!-- Сетка товаров -->
-        <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-3 mb-8 items-stretch">
+        <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-6 mb-10">
           {#each parts as part}
             <PartCard {part} isPopular={part.isPopular || false} on:addToCart={handleAddToCart} />
           {/each}
         </div>
 
-        <!-- Пагинация -->
         <Pagination
           {currentPage}
           {totalPages}
           onPageChange={handlePageChange}
         />
       {:else}
-        <!-- Пустое состояние -->
-        <div class="text-center py-16">
-          <svg class="w-16 h-16 text-neutral-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-          </svg>
-          {#if filters.search && filters.search.trim().length > 0}
-            {#if filters.search.trim().length < 2}
-              <!-- Поисковый запрос слишком короткий -->
-              <h3 class="text-lg font-semibold text-neutral-900 mb-2">Поисковый запрос слишком короткий</h3>
-              <p class="text-neutral-600 mb-4">
-                Введите минимум 2 символа для поиска
-              </p>
-              <p class="text-sm text-neutral-500 mb-4">
-                Попробуйте ввести название товара, артикул или номер детали
-              </p>
-            {:else}
-              <!-- Товары не найдены по запросу -->
-              <h3 class="text-lg font-semibold text-neutral-900 mb-2">
-                По запросу "{filters.search}" ничего не найдено
-              </h3>
-              <p class="text-neutral-600 mb-2">
-                Попробуйте:
-              </p>
-              <ul class="text-left max-w-md mx-auto text-neutral-600 mb-4 space-y-1">
-                <li>• Проверить правильность написания</li>
-                <li>• Использовать другие ключевые слова</li>
-                <li>• Поискать по артикулу или номеру детали</li>
-                <li>• Изменить фильтры (бренд, склад, цена)</li>
-              </ul>
-            {/if}
-          {:else if filters.brand || filters.warehouse || filters.price_min || filters.price_max}
-            <!-- Товары не найдены с применёнными фильтрами -->
-            <h3 class="text-lg font-semibold text-neutral-900 mb-2">Товары не найдены</h3>
-            <p class="text-neutral-600 mb-4">
-              Попробуйте изменить параметры фильтров или сбросить их
-            </p>
-          {:else}
-            <!-- Общий случай - нет товаров -->
-            <h3 class="text-lg font-semibold text-neutral-900 mb-2">Товары не найдены</h3>
-            <p class="text-neutral-600 mb-4">
-              В каталоге пока нет товаров, соответствующих вашим критериям
-            </p>
-          {/if}
-          <button onclick={handleClearFilters} class="btn-primary">
-            Сбросить фильтры
+        <!-- Empty State (Styled) -->
+        <div class="bg-white rounded-3xl p-12 text-center border border-gray-100 shadow-sm">
+          <div class="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6">
+            <svg class="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          
+          <h3 class="text-xl font-bold text-gray-900 mb-2">Ничего не найдено</h3>
+          <p class="text-gray-500 mb-8 max-w-md mx-auto">
+            К сожалению, по вашему запросу товаров не найдено. Попробуйте изменить параметры поиска или сбросить фильтры.
+          </p>
+          
+          <button onclick={handleClearFilters} class="btn-primary px-8 py-3">
+            Сбросить все фильтры
           </button>
         </div>
       {/if}

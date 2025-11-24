@@ -1,5 +1,6 @@
 <script>
   import { partsApi, brandsApi, warehousesApi, formatUtils } from '$lib/utils/api.js';
+  import { toastStore } from '$lib/stores/toast.js';
   
   let { part, isOpen, onClose, onUpdate } = $props();
   
@@ -17,6 +18,7 @@
     warehouse: '',
     warehouse_name: '',
     stock: 0,
+    reserve: 0, // Add reserve field
     price_opt: 0,
     cost_price: 0,
     description: '',
@@ -34,6 +36,7 @@
       warehouses = warehousesData.results || warehousesData;
     } catch (error) {
       console.error('Error loading references:', error);
+      toastStore.error('Ошибка загрузки справочников');
     }
   }
   
@@ -45,49 +48,40 @@
       isUploadingImage = true;
       let successCount = 0;
       let errorCount = 0;
-      const errors = [];
       
       for (const file of files) {
         try {
-          // Проверяем размер файла (максимум 10MB)
           const maxSize = 10 * 1024 * 1024; // 10MB
           if (file.size > maxSize) {
-            errors.push(`${file.name}: файл слишком большой (максимум 10MB)`);
+            toastStore.warning(`${file.name}: файл слишком большой (максимум 10MB)`);
             errorCount++;
             continue;
           }
           
-          // Проверяем тип файла
           if (!file.type.startsWith('image/')) {
-            errors.push(`${file.name}: файл должен быть изображением`);
+            toastStore.warning(`${file.name}: файл должен быть изображением`);
             errorCount++;
             continue;
           }
           
-          // Сразу загружаем изображение на сервер
           const result = await partsApi.uploadPartImage(part.id, file);
           uploadedImages.push({
             url: result.image_url,
             id: result.id,
-            order_index: uploadedImages.length // Новое изображение добавляется в конец
+            order_index: uploadedImages.length
           });
           successCount++;
         } catch (fileError) {
           console.error(`Error uploading image ${file.name}:`, fileError);
-          errors.push(`${file.name}: ${fileError.message || 'Ошибка загрузки'}`);
+          toastStore.error(`${file.name}: ошибка загрузки`);
           errorCount++;
         }
       }
       
       uploadedImages = [...uploadedImages];
       
-      // Показываем результат
-      if (successCount > 0 && errorCount === 0) {
-        alert(`Успешно загружено изображений: ${successCount}`);
-      } else if (successCount > 0 && errorCount > 0) {
-        alert(`Загружено: ${successCount}, ошибок: ${errorCount}\n\n${errors.join('\n')}`);
-      } else {
-        alert(`Ошибка загрузки изображений:\n\n${errors.join('\n')}`);
+      if (successCount > 0) {
+        toastStore.success(`Загружено изображений: ${successCount}`);
       }
       
       if (successCount > 0 && onUpdate) {
@@ -95,10 +89,9 @@
       }
     } catch (error) {
       console.error('Error uploading image:', error);
-      alert(`Ошибка загрузки изображения: ${error.message || 'Неизвестная ошибка'}`);
+      toastStore.error('Общая ошибка загрузки изображений');
     } finally {
       isUploadingImage = false;
-      // Сбрасываем input, чтобы можно было загрузить тот же файл снова
       event.target.value = '';
     }
   }
@@ -107,25 +100,21 @@
     const image = uploadedImages[index];
     if (!image || !part) return;
     
-    // Если изображение уже сохранено на сервере (имеет id), удаляем его
     if (image.id) {
       try {
         await partsApi.deletePartImage(part.id, image.id);
       } catch (error) {
         console.error('Error deleting image:', error);
-        alert(`Ошибка удаления изображения: ${error.message || 'Неизвестная ошибка'}`);
+        toastStore.error('Ошибка удаления изображения');
         return;
       }
     }
     
-    // Удаляем из локального массива
     uploadedImages.splice(index, 1);
     uploadedImages = [...uploadedImages];
     
-    // Обновляем порядок оставшихся изображений на сервере
     await updateImageOrders();
     
-    // Обновляем данные товара
     if (onUpdate) onUpdate();
   }
   
@@ -133,7 +122,6 @@
     try {
       isUpdating = true;
       
-      // Создаём бренд если нужно
       let brandId = formData.brand;
       if (formData.use_custom_brand && formData.brand_name) {
         try {
@@ -144,12 +132,11 @@
           brandId = newBrand.id;
         } catch (error) {
           console.error('Error creating brand:', error);
-          alert('Ошибка создания бренда');
+          toastStore.error('Ошибка создания бренда');
           return;
         }
       }
       
-      // Создаём склад если нужно
       let warehouseId = formData.warehouse;
       if (formData.use_custom_warehouse && formData.warehouse_name) {
         try {
@@ -160,7 +147,7 @@
           warehouseId = newWarehouse.id;
         } catch (error) {
           console.error('Error creating warehouse:', error);
-          alert('Ошибка создания склада');
+          toastStore.error('Ошибка создания склада');
           return;
         }
       }
@@ -171,6 +158,7 @@
         brand_id: parseInt(brandId),
         warehouse_id: parseInt(warehouseId),
         stock: parseInt(formData.stock),
+        reserve: parseInt(formData.reserve), // Send reserve
         price_opt: parseFloat(formData.price_opt),
         cost_price: parseFloat(formData.cost_price) || 0,
         description: formData.description,
@@ -181,10 +169,10 @@
       if (onUpdate) onUpdate();
       if (onClose) onClose();
       
-      alert('Товар успешно обновлён!');
+      toastStore.success('Товар успешно обновлён');
     } catch (error) {
       console.error('Error updating part:', error);
-      alert('Ошибка обновления товара');
+      toastStore.error('Ошибка обновления товара');
     } finally {
       isUpdating = false;
     }
@@ -196,18 +184,18 @@
       formData = {
         title: part.title || '',
         manufacturer_number: part.manufacturer_number || '',
-        brand: part.brand?.id || '',
+        brand: part.brand?.id || part.brand_id || '',
         brand_name: '',
-        warehouse: part.warehouse?.id || '',
+        warehouse: part.warehouse?.id || part.warehouse_id || '',
         warehouse_name: '',
         stock: part.stock || 0,
+        reserve: part.reserve || 0, // Initialize reserve
         price_opt: part.price_opt || 0,
         cost_price: part.cost_price || 0,
         description: part.description || '',
         use_custom_brand: false,
         use_custom_warehouse: false
       };
-      // Загружаем существующие изображения товара, сортируем по orderIndex
       uploadedImages = (part.images || [])
         .map(img => ({
           url: img.image_url || img.url || '',
@@ -218,17 +206,12 @@
     }
   });
   
-  // Функции для изменения порядка изображений
   async function moveImageUp(index) {
     if (index === 0 || !part) return;
     
     const images = [...uploadedImages];
     [images[index - 1], images[index]] = [images[index], images[index - 1]];
-    
-    // Обновляем локально
     uploadedImages = images;
-    
-    // Обновляем на сервере
     await updateImageOrders();
   }
   
@@ -237,11 +220,7 @@
     
     const images = [...uploadedImages];
     [images[index], images[index + 1]] = [images[index + 1], images[index]];
-    
-    // Обновляем локально
     uploadedImages = images;
-    
-    // Обновляем на сервере
     await updateImageOrders();
   }
   
@@ -249,7 +228,6 @@
     if (!part) return;
     
     try {
-      // Обновляем orderIndex для всех изображений
       const promises = uploadedImages.map((img, index) => {
         if (img.id) {
           return partsApi.updateImageOrder(part.id, img.id, index);
@@ -259,7 +237,6 @@
       
       await Promise.all(promises);
       
-      // Обновляем локальные order_index
       uploadedImages = uploadedImages.map((img, index) => ({
         ...img,
         order_index: index
@@ -268,14 +245,14 @@
       if (onUpdate) onUpdate();
     } catch (error) {
       console.error('Error updating image orders:', error);
-      alert(`Ошибка обновления порядка изображений: ${error.message || 'Неизвестная ошибка'}`);
+      toastStore.error('Ошибка обновления порядка изображений');
     }
   }
 </script>
 
 {#if isOpen}
   <div 
-    class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" 
+    class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-hidden" 
     onclick={onClose}
     onkeydown={(e) => e.key === 'Escape' && onClose()}
     role="dialog"
@@ -287,189 +264,273 @@
     <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <div 
-      class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto" 
+      class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden border border-gray-100" 
       onclick={(e) => e.stopPropagation()}
       role="region"
       aria-label="Содержимое модального окна"
       tabindex="0"
     >
-      <div class="p-6 border-b border-gray-200 flex items-center justify-between">
-        <h2 id="edit-product-title" class="text-2xl font-bold text-gray-900">Редактировать товар</h2>
-        <button onclick={onClose} aria-label="Закрыть" class="w-10 h-10 rounded-full hover:bg-gray-100 flex items-center justify-center">
-          <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <!-- Header -->
+      <div class="p-6 border-b border-gray-100 flex items-center justify-between bg-white">
+        <div>
+          <h2 id="edit-product-title" class="text-xl font-bold text-gray-900">Редактировать товар</h2>
+          <p class="text-sm text-gray-500 mt-1">Измените основные характеристики товара</p>
+        </div>
+        <button 
+          onclick={onClose} 
+          aria-label="Закрыть" 
+          class="w-8 h-8 rounded-full bg-gray-50 hover:bg-gray-100 flex items-center justify-center text-gray-500 transition-colors"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
       </div>
       
-      <div class="p-6 space-y-6">
+      <!-- Scrollable Content -->
+      <div class="flex-1 overflow-y-auto p-6 space-y-6 bg-white">
         <!-- Название -->
         <div>
-          <label for="edit-title" class="block text-sm font-medium text-gray-700 mb-2">Название товара *</label>
-          <input id="edit-title" type="text" bind:value={formData.title} required class="input w-full" />
+          <label for="edit-title" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Название товара *</label>
+          <input 
+            id="edit-title" 
+            type="text" 
+            bind:value={formData.title} 
+            required 
+            class="w-full bg-gray-50 border-transparent focus:bg-white focus:border-gray-300 rounded-xl px-4 py-3 text-sm transition-all shadow-inner" 
+            placeholder="Например: Масляный фильтр..."
+          />
         </div>
         
         <!-- Артикул -->
         <div>
-          <label for="edit-manufacturer-number" class="block text-sm font-medium text-gray-700 mb-2">Артикул</label>
-          <input id="edit-manufacturer-number" type="text" bind:value={formData.manufacturer_number} class="input w-full" />
+          <label for="edit-manufacturer-number" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Артикул</label>
+          <input 
+            id="edit-manufacturer-number" 
+            type="text" 
+            bind:value={formData.manufacturer_number} 
+            class="w-full bg-gray-50 border-transparent focus:bg-white focus:border-gray-300 rounded-xl px-4 py-3 text-sm transition-all shadow-inner font-mono" 
+            placeholder="OEM номер"
+          />
         </div>
         
-        <!-- Бренд -->
-        <div>
-          <label for="edit-brand-select" class="block text-sm font-medium text-gray-700 mb-2">Бренд *</label>
-          <div class="flex items-center space-x-2 mb-2">
-            <label class="flex items-center">
-              <input type="radio" bind:group={formData.use_custom_brand} value={false} class="mr-2" />
-              <span class="text-sm">Выбрать из списка</span>
-            </label>
-            <label class="flex items-center">
-              <input type="radio" bind:group={formData.use_custom_brand} value={true} class="mr-2" />
-              <span class="text-sm">Ввести свой</span>
-            </label>
+        <!-- Бренд и Склад -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- Бренд -->
+          <div>
+            <label for="edit-brand-select" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Бренд *</label>
+            <div class="flex items-center space-x-4 mb-3">
+              <label class="flex items-center cursor-pointer">
+                <input type="radio" bind:group={formData.use_custom_brand} value={false} class="mr-2 text-gray-900 focus:ring-gray-900" />
+                <span class="text-sm text-gray-600">Из списка</span>
+              </label>
+              <label class="flex items-center cursor-pointer">
+                <input type="radio" bind:group={formData.use_custom_brand} value={true} class="mr-2 text-gray-900 focus:ring-gray-900" />
+                <span class="text-sm text-gray-600">Новый</span>
+              </label>
+            </div>
+            {#if formData.use_custom_brand}
+              <input 
+                id="edit-brand-custom" 
+                type="text" 
+                bind:value={formData.brand_name} 
+                placeholder="Введите название бренда" 
+                class="w-full bg-gray-50 border-transparent focus:bg-white focus:border-gray-300 rounded-xl px-4 py-3 text-sm transition-all shadow-inner" 
+              />
+            {:else}
+              <select 
+                id="edit-brand-select" 
+                bind:value={formData.brand} 
+                class="w-full bg-gray-50 border-transparent focus:bg-white focus:border-gray-300 rounded-xl px-4 py-3 text-sm transition-all shadow-inner cursor-pointer"
+              >
+                <option value="">Выберите бренд</option>
+                {#each brands as brand}
+                  <option value={brand.id}>{brand.name}</option>
+                {/each}
+              </select>
+            {/if}
           </div>
-          {#if formData.use_custom_brand}
-            <input id="edit-brand-custom" type="text" bind:value={formData.brand_name} placeholder="Введите название бренда" class="input w-full" />
-          {:else}
-            <select id="edit-brand-select" bind:value={formData.brand} class="input w-full">
-              <option value="">Выберите бренд</option>
-              {#each brands as brand}
-                <option value={brand.id}>{brand.name}</option>
-              {/each}
-            </select>
-          {/if}
-        </div>
-        
-        <!-- Склад -->
-        <div>
-          <label for="edit-warehouse-select" class="block text-sm font-medium text-gray-700 mb-2">Склад *</label>
-          <div class="flex items-center space-x-2 mb-2">
-            <label class="flex items-center">
-              <input type="radio" bind:group={formData.use_custom_warehouse} value={false} class="mr-2" />
-              <span class="text-sm">Выбрать из списка</span>
-            </label>
-            <label class="flex items-center">
-              <input type="radio" bind:group={formData.use_custom_warehouse} value={true} class="mr-2" />
-              <span class="text-sm">Ввести свой</span>
-            </label>
+          
+          <!-- Склад -->
+          <div>
+            <label for="edit-warehouse-select" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Склад *</label>
+            <div class="flex items-center space-x-4 mb-3">
+              <label class="flex items-center cursor-pointer">
+                <input type="radio" bind:group={formData.use_custom_warehouse} value={false} class="mr-2 text-gray-900 focus:ring-gray-900" />
+                <span class="text-sm text-gray-600">Из списка</span>
+              </label>
+              <label class="flex items-center cursor-pointer">
+                <input type="radio" bind:group={formData.use_custom_warehouse} value={true} class="mr-2 text-gray-900 focus:ring-gray-900" />
+                <span class="text-sm text-gray-600">Новый</span>
+              </label>
+            </div>
+            {#if formData.use_custom_warehouse}
+              <input 
+                id="edit-warehouse-custom" 
+                type="text" 
+                bind:value={formData.warehouse_name} 
+                placeholder="Введите название склада" 
+                class="w-full bg-gray-50 border-transparent focus:bg-white focus:border-gray-300 rounded-xl px-4 py-3 text-sm transition-all shadow-inner" 
+              />
+            {:else}
+              <select 
+                id="edit-warehouse-select" 
+                bind:value={formData.warehouse} 
+                class="w-full bg-gray-50 border-transparent focus:bg-white focus:border-gray-300 rounded-xl px-4 py-3 text-sm transition-all shadow-inner cursor-pointer"
+              >
+                <option value="">Выберите склад</option>
+                {#each warehouses as warehouse}
+                  <option value={warehouse.id}>{warehouse.name}</option>
+                {/each}
+              </select>
+            {/if}
           </div>
-          {#if formData.use_custom_warehouse}
-            <input id="edit-warehouse-custom" type="text" bind:value={formData.warehouse_name} placeholder="Введите название склада" class="input w-full" />
-          {:else}
-            <select id="edit-warehouse-select" bind:value={formData.warehouse} class="input w-full">
-              <option value="">Выберите склад</option>
-              {#each warehouses as warehouse}
-                <option value={warehouse.id}>{warehouse.name}</option>
-              {/each}
-            </select>
-          {/if}
         </div>
         
         <!-- Цены и количество -->
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label for="edit-stock" class="block text-sm font-medium text-gray-700 mb-2">Количество на складе *</label>
-            <input id="edit-stock" type="number" bind:value={formData.stock} min="0" class="input w-full" />
-          </div>
-          <div>
-            <label for="edit-price-opt" class="block text-sm font-medium text-gray-700 mb-2">Цена продажи (₽) *</label>
-            <input id="edit-price-opt" type="number" step="0.01" bind:value={formData.price_opt} min="0" class="input w-full" />
-          </div>
-          <div>
-            <label for="edit-cost-price" class="block text-sm font-medium text-gray-700 mb-2">Себестоимость (₽)</label>
-            <input id="edit-cost-price" type="number" step="0.01" bind:value={formData.cost_price} min="0" class="input w-full" />
-          </div>
-          <div>
-            <label for="edit-margin" class="block text-sm font-medium text-gray-700 mb-2">Маржа</label>
-            <div class="input w-full bg-gray-50">
-              {formData.price_opt > 0 ? ((formData.price_opt - formData.cost_price) / formData.price_opt * 100).toFixed(1) : 0}%
+        <div class="bg-gray-50/50 rounded-xl p-4 border border-gray-100">
+          <h3 class="text-xs font-bold text-gray-900 uppercase tracking-wider mb-4">Наличие и цены</h3>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label for="edit-stock" class="block text-xs font-medium text-gray-500 mb-1">Количество (физическое)</label>
+              <input 
+                id="edit-stock" 
+                type="number" 
+                bind:value={formData.stock} 
+                min="0" 
+                class="w-full bg-white border border-gray-200 focus:border-gray-400 rounded-lg px-3 py-2 text-sm transition-all" 
+              />
             </div>
+             <div>
+              <label for="edit-reserve" class="block text-xs font-medium text-gray-500 mb-1">Резерв (в заказах)</label>
+              <input 
+                id="edit-reserve" 
+                type="number" 
+                bind:value={formData.reserve} 
+                min="0" 
+                class="w-full bg-white border border-gray-200 focus:border-gray-400 rounded-lg px-3 py-2 text-sm transition-all bg-orange-50 text-orange-700 font-medium" 
+              />
+            </div>
+            <div>
+              <label for="edit-price-opt" class="block text-xs font-medium text-gray-500 mb-1">Цена продажи (₽)</label>
+              <input 
+                id="edit-price-opt" 
+                type="number" 
+                step="0.01" 
+                bind:value={formData.price_opt} 
+                min="0" 
+                class="w-full bg-white border border-gray-200 focus:border-gray-400 rounded-lg px-3 py-2 text-sm transition-all font-medium" 
+              />
+            </div>
+            <div>
+              <label for="edit-cost-price" class="block text-xs font-medium text-gray-500 mb-1">Себестоимость (₽)</label>
+              <input 
+                id="edit-cost-price" 
+                type="number" 
+                step="0.01" 
+                bind:value={formData.cost_price} 
+                min="0" 
+                class="w-full bg-white border border-gray-200 focus:border-gray-400 rounded-lg px-3 py-2 text-sm transition-all text-gray-500" 
+              />
+            </div>
+          </div>
+          <div class="mt-4 flex justify-between items-center text-xs text-gray-500 pt-3 border-t border-gray-200">
+            <span>Доступно для продажи: <strong class="text-gray-900">{Math.max(0, formData.stock - formData.reserve)}</strong></span>
+            <span>Маржа: <strong class="text-green-600">{formData.price_opt > 0 ? ((formData.price_opt - formData.cost_price) / formData.price_opt * 100).toFixed(1) : 0}%</strong></span>
           </div>
         </div>
         
         <!-- Описание -->
         <div>
-          <label for="edit-description" class="block text-sm font-medium text-gray-700 mb-2">Описание</label>
-          <textarea id="edit-description" bind:value={formData.description} rows="3" class="input w-full"></textarea>
+          <label for="edit-description" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Описание</label>
+          <textarea 
+            id="edit-description" 
+            bind:value={formData.description} 
+            rows="3" 
+            class="w-full bg-gray-50 border-transparent focus:bg-white focus:border-gray-300 rounded-xl px-4 py-3 text-sm transition-all shadow-inner resize-none"
+          ></textarea>
         </div>
         
         <!-- Изображения -->
         <div>
-          <label for="edit-images" class="block text-sm font-medium text-gray-700 mb-2">Изображения</label>
-          <div class="border-2 border-dashed border-gray-300 rounded-lg p-4">
-            <input 
-              id="edit-images"
-              type="file" 
-              accept="image/*" 
-              multiple 
-              onchange={handleImageUpload}
-              class="hidden"
-            />
-            <label for="edit-images" class="cursor-pointer flex flex-col items-center">
-              <svg class="w-12 h-12 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              <span class="text-sm text-gray-600">Нажмите для загрузки изображений</span>
-            </label>
-          </div>
+          <label for="edit-images" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Изображения</label>
           
-          {#if uploadedImages.length > 0}
-            <div class="grid grid-cols-4 gap-2 mt-4">
-              {#each uploadedImages as image, index}
-                <div class="relative group">
-                  <img src={image.url} alt="" class="w-full h-24 object-cover rounded-lg border-2 border-gray-200" />
-                  
-                  <!-- Кнопки управления порядком -->
-                  <div class="absolute top-1 left-1 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+            {#each uploadedImages as image, index}
+              <div class="relative group aspect-square bg-gray-50 rounded-xl border border-gray-200 overflow-hidden">
+                <img src={image.url} alt="" class="w-full h-full object-cover" />
+                
+                <!-- Controls Overlay -->
+                <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
+                  <div class="flex gap-1">
                     <button 
                       onclick={() => moveImageUp(index)}
                       disabled={index === 0}
-                      class="w-6 h-6 bg-blue-500 text-white rounded flex items-center justify-center hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-xs"
-                      title="Переместить вверх"
+                      class="w-7 h-7 bg-white/20 hover:bg-white/40 text-white rounded-lg flex items-center justify-center disabled:opacity-30 transition-colors"
                     >
-                      ↑
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" /></svg>
                     </button>
                     <button 
                       onclick={() => moveImageDown(index)}
                       disabled={index === uploadedImages.length - 1}
-                      class="w-6 h-6 bg-blue-500 text-white rounded flex items-center justify-center hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-xs"
-                      title="Переместить вниз"
+                      class="w-7 h-7 bg-white/20 hover:bg-white/40 text-white rounded-lg flex items-center justify-center disabled:opacity-30 transition-colors"
                     >
-                      ↓
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
                     </button>
                   </div>
-                  
-                  <!-- Кнопка удаления -->
                   <button 
                     onclick={() => removeImage(index)}
-                    class="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                    title="Удалить изображение"
+                    class="w-7 h-7 bg-red-500/80 hover:bg-red-600 text-white rounded-lg flex items-center justify-center transition-colors"
                   >
-                    ×
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                   </button>
-                  
-                  <!-- Индикатор порядка -->
-                  <div class="absolute bottom-1 left-1 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
-                    #{index + 1}
-                  </div>
                 </div>
-              {/each}
-            </div>
-            <p class="text-xs text-gray-500 mt-2">Наведите курсор на изображение, чтобы увидеть кнопки управления порядком</p>
-          {/if}
+                
+                <div class="absolute bottom-1 left-1 bg-black/50 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
+                  {index + 1}
+                </div>
+              </div>
+            {/each}
+            
+            <!-- Add Image Button -->
+            <label 
+              class="aspect-square bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-gray-100 hover:border-gray-400 transition-all group"
+            >
+              <input 
+                type="file" 
+                accept="image/*" 
+                multiple 
+                onchange={handleImageUpload}
+                class="hidden"
+              />
+              {#if isUploadingImage}
+                <div class="animate-spin w-6 h-6 border-2 border-gray-400 border-t-gray-900 rounded-full"></div>
+              {:else}
+                <svg class="w-8 h-8 text-gray-400 group-hover:text-gray-600 mb-1 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                <span class="text-xs font-medium text-gray-500 group-hover:text-gray-700">Добавить</span>
+              {/if}
+            </label>
+          </div>
         </div>
       </div>
       
-      <!-- Кнопки -->
-      <div class="p-6 border-t border-gray-200 flex space-x-3">
+      <!-- Footer Buttons -->
+      <div class="p-6 border-t border-gray-100 bg-gray-50 flex space-x-4">
+        <button 
+          onclick={onClose} 
+          class="flex-1 py-3 px-4 bg-white border border-gray-200 text-gray-700 font-medium rounded-xl hover:bg-gray-50 hover:text-gray-900 transition-colors shadow-sm"
+        >
+          Отмена
+        </button>
         <button 
           onclick={handleSave}
           disabled={isUpdating}
-          class="btn-primary flex-1"
+          class="flex-1 py-3 px-4 bg-gray-900 text-white font-bold rounded-xl hover:bg-black shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
         >
-          {isUpdating ? 'Сохранение...' : 'Сохранить'}
+          {isUpdating ? 'Сохранение...' : 'Сохранить изменения'}
         </button>
-        <button onclick={onClose} class="btn-outline flex-1">Отмена</button>
       </div>
     </div>
   </div>

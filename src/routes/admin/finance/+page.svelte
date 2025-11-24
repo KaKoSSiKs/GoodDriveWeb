@@ -1,6 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { financeApi, formatUtils } from '$lib/utils/api.js';
+  import { toastStore } from '$lib/stores/toast.js';
   
   let activeTab = $state('summary'); // summary, expenses, cash
   let isLoading = $state(true);
@@ -53,6 +54,7 @@
       summary = data;
     } catch (error) {
       console.error('Error loading summary:', error);
+      toastStore.error('Ошибка загрузки сводки');
     } finally {
       isLoading = false;
     }
@@ -68,6 +70,7 @@
       expenseCategories = categoriesData.results || categoriesData;
     } catch (error) {
       console.error('Error loading expenses:', error);
+      toastStore.error('Ошибка загрузки расходов');
     }
   }
   
@@ -81,6 +84,7 @@
       cashTransactions = transactionsData.results || transactionsData;
     } catch (error) {
       console.error('Error loading cash:', error);
+      toastStore.error('Ошибка загрузки кассы');
     }
   }
   
@@ -94,11 +98,12 @@
         description: '',
         date: new Date().toISOString().split('T')[0]
       };
+      toastStore.success('Расход добавлен');
       await loadExpenses();
       await loadSummary();
     } catch (error) {
       console.error('Error adding expense:', error);
-      alert('Ошибка добавления расхода');
+      toastStore.error('Ошибка добавления расхода');
     }
   }
   
@@ -113,10 +118,11 @@
         description: '',
         date: new Date().toISOString()
       };
+      toastStore.success('Транзакция добавлена');
       await loadCash();
     } catch (error) {
       console.error('Error adding transaction:', error);
-      alert('Ошибка добавления транзакции');
+      toastStore.error('Ошибка добавления транзакции');
     }
   }
   
@@ -138,43 +144,43 @@
   <title>Финансы - Admin</title>
 </svelte:head>
 
-<div class="space-y-4 sm:space-y-6 w-full">
+<div class="space-y-6 w-full">
   <!-- Заголовок -->
   <div>
-    <h1 class="text-3xl font-bold text-gray-900">Финансы</h1>
-    <p class="text-gray-600 mt-2">Управление финансами и отчётность</p>
+    <h1 class="text-3xl font-bold text-gray-900 tracking-tight">Финансы</h1>
+    <p class="text-gray-500 mt-2">Управление финансами и отчетность</p>
   </div>
   
   <!-- Табы -->
-  <div class="bg-white rounded-xl shadow-sm">
-    <div class="border-b border-gray-200">
-      <nav class="flex space-x-8 px-6" aria-label="Tabs">
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+    <div class="border-b border-gray-100">
+      <nav class="flex space-x-1 p-2" aria-label="Tabs">
         <button
           onclick={() => handleTabChange('summary')}
-          class="py-4 px-1 border-b-2 font-medium text-sm transition-colors {
+          class="px-4 py-2 rounded-lg text-sm font-medium transition-all {
             activeTab === 'summary' 
-              ? 'border-primary-500 text-primary-600' 
-              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              ? 'bg-gray-900 text-white shadow-md' 
+              : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
           }"
         >
           Сводка
         </button>
         <button
           onclick={() => handleTabChange('expenses')}
-          class="py-4 px-1 border-b-2 font-medium text-sm transition-colors {
+          class="px-4 py-2 rounded-lg text-sm font-medium transition-all {
             activeTab === 'expenses' 
-              ? 'border-primary-500 text-primary-600' 
-              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              ? 'bg-gray-900 text-white shadow-md' 
+              : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
           }"
         >
           Расходы
         </button>
         <button
           onclick={() => handleTabChange('cash')}
-          class="py-4 px-1 border-b-2 font-medium text-sm transition-colors {
+          class="px-4 py-2 rounded-lg text-sm font-medium transition-all {
             activeTab === 'cash' 
-              ? 'border-primary-500 text-primary-600' 
-              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              ? 'bg-gray-900 text-white shadow-md' 
+              : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
           }"
         >
           Касса
@@ -187,12 +193,12 @@
         <!-- Сводка -->
         <div class="space-y-6">
           <!-- Фильтр периода -->
-          <div class="flex items-center justify-between">
-            <h2 class="text-lg font-semibold text-gray-900">Финансовая сводка</h2>
+          <div class="flex items-center justify-between flex-wrap gap-4">
+            <h2 class="text-lg font-bold text-gray-900">Финансовая сводка</h2>
             <select
               bind:value={period}
               onchange={loadSummary}
-              class="input w-48"
+              class="bg-gray-50 border-transparent focus:bg-white focus:border-gray-300 rounded-xl px-4 py-2 text-sm transition-all shadow-inner cursor-pointer"
             >
               <option value="7">За 7 дней</option>
               <option value="30">За 30 дней</option>
@@ -202,59 +208,62 @@
           </div>
           
           {#if isLoading}
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {#each Array(6) as _}
-                <div class="bg-gray-100 rounded-lg p-6 animate-pulse">
-                  <div class="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
-                  <div class="h-8 bg-gray-200 rounded w-3/4"></div>
-                </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {#each Array(3) as _}
+                <div class="bg-white rounded-2xl border border-gray-100 p-6 animate-pulse h-32"></div>
               {/each}
             </div>
           {:else}
             <!-- Основные метрики -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-6 text-white">
-                <p class="text-sm opacity-90 mb-2">Выручка</p>
-                <p class="text-3xl font-bold">{formatUtils.formatPrice(summary.revenue)}</p>
-                <p class="text-xs opacity-75 mt-2">Заказов: {summary.orders_count}</p>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div class="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-all">
+                <p class="text-sm font-medium text-gray-500 mb-1">Выручка</p>
+                <p class="text-3xl font-bold text-gray-900">{formatUtils.formatPrice(summary.revenue)}</p>
+                <div class="mt-2 flex items-center text-xs font-medium text-gray-400 bg-gray-50 px-2 py-1 rounded-lg w-fit">
+                  Заказов: {summary.orders_count}
+                </div>
               </div>
               
-              <div class="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-6 text-white">
-                <p class="text-sm opacity-90 mb-2">Валовая прибыль</p>
-                <p class="text-3xl font-bold">{formatUtils.formatPrice(summary.gross_profit)}</p>
-                <p class="text-xs opacity-75 mt-2">Маржа: {summary.margin_percent.toFixed(1)}%</p>
+              <div class="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-all">
+                <p class="text-sm font-medium text-gray-500 mb-1">Валовая прибыль</p>
+                <p class="text-3xl font-bold text-green-600">{formatUtils.formatPrice(summary.gross_profit)}</p>
+                <div class="mt-2 flex items-center text-xs font-medium text-green-700 bg-green-50 px-2 py-1 rounded-lg w-fit">
+                  Маржа: {summary.margin_percent.toFixed(1)}%
+                </div>
               </div>
               
-              <div class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-6 text-white">
-                <p class="text-sm opacity-90 mb-2">Чистая прибыль</p>
-                <p class="text-3xl font-bold">{formatUtils.formatPrice(summary.net_profit)}</p>
-                <p class="text-xs opacity-75 mt-2">Сред. чек: {formatUtils.formatPrice(summary.average_order)}</p>
+              <div class="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-all">
+                <p class="text-sm font-medium text-gray-500 mb-1">Чистая прибыль</p>
+                <p class="text-3xl font-bold text-purple-600">{formatUtils.formatPrice(summary.net_profit)}</p>
+                <div class="mt-2 flex items-center text-xs font-medium text-purple-700 bg-purple-50 px-2 py-1 rounded-lg w-fit">
+                  Сред. чек: {formatUtils.formatPrice(summary.average_order)}
+                </div>
               </div>
             </div>
             
             <!-- Детализация -->
-            <div class="bg-white rounded-lg border border-gray-200 p-6">
-              <h3 class="text-lg font-semibold text-gray-900 mb-4">Детализация</h3>
+            <div class="bg-gray-50 rounded-2xl p-6 border border-gray-100">
+              <h3 class="text-lg font-bold text-gray-900 mb-4">Детализация</h3>
               <div class="space-y-3">
-                <div class="flex justify-between items-center py-2 border-b border-gray-100">
-                  <span class="text-sm text-gray-600">Выручка</span>
-                  <span class="font-semibold text-gray-900">{formatUtils.formatPrice(summary.revenue)}</span>
+                <div class="flex justify-between items-center py-2 border-b border-gray-200">
+                  <span class="text-sm font-medium text-gray-600">Выручка</span>
+                  <span class="font-bold text-gray-900">{formatUtils.formatPrice(summary.revenue)}</span>
                 </div>
-                <div class="flex justify-between items-center py-2 border-b border-gray-100">
-                  <span class="text-sm text-gray-600">Себестоимость товаров</span>
-                  <span class="font-semibold text-red-600">-{formatUtils.formatPrice(summary.cost_of_goods)}</span>
+                <div class="flex justify-between items-center py-2 border-b border-gray-200">
+                  <span class="text-sm font-medium text-gray-600">Себестоимость товаров</span>
+                  <span class="font-bold text-red-500">-{formatUtils.formatPrice(summary.cost_of_goods)}</span>
                 </div>
-                <div class="flex justify-between items-center py-2 border-b border-gray-100">
-                  <span class="text-sm font-medium text-gray-700">Валовая прибыль</span>
-                  <span class="font-semibold text-green-600">{formatUtils.formatPrice(summary.gross_profit)}</span>
+                <div class="flex justify-between items-center py-2 border-b border-gray-200">
+                  <span class="text-sm font-medium text-gray-900">Валовая прибыль</span>
+                  <span class="font-bold text-green-600">{formatUtils.formatPrice(summary.gross_profit)}</span>
                 </div>
-                <div class="flex justify-between items-center py-2 border-b border-gray-100">
-                  <span class="text-sm text-gray-600">Операционные расходы</span>
-                  <span class="font-semibold text-red-600">-{formatUtils.formatPrice(summary.operating_expenses)}</span>
+                <div class="flex justify-between items-center py-2 border-b border-gray-200">
+                  <span class="text-sm font-medium text-gray-600">Операционные расходы</span>
+                  <span class="font-bold text-red-500">-{formatUtils.formatPrice(summary.operating_expenses)}</span>
                 </div>
-                <div class="flex justify-between items-center py-3 bg-primary-50 -mx-6 px-6">
+                <div class="flex justify-between items-center pt-2">
                   <span class="text-base font-bold text-gray-900">Чистая прибыль</span>
-                  <span class="text-xl font-bold text-primary-600">{formatUtils.formatPrice(summary.net_profit)}</span>
+                  <span class="text-xl font-bold text-gray-900">{formatUtils.formatPrice(summary.net_profit)}</span>
                 </div>
               </div>
             </div>
@@ -263,41 +272,42 @@
         
       {:else if activeTab === 'expenses'}
         <!-- Расходы -->
-        <div class="space-y-4">
+        <div class="space-y-6">
           <div class="flex items-center justify-between">
-            <h2 class="text-lg font-semibold text-gray-900">Расходы</h2>
+            <h2 class="text-lg font-bold text-gray-900">Расходы</h2>
             <button
               onclick={() => showAddExpense = true}
-              class="btn-primary"
+              class="inline-flex items-center px-4 py-2 bg-gray-900 text-white rounded-xl font-medium hover:bg-gray-800 transition-colors shadow-sm"
             >
-              + Добавить расход
+              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              Добавить расход
             </button>
           </div>
           
           {#if expenses.length === 0}
-            <div class="text-center py-12 text-gray-500">
-              <p>Расходов пока нет</p>
+            <div class="text-center py-16 bg-gray-50/50 rounded-xl border border-dashed border-gray-200">
+              <p class="text-gray-500">Расходов пока нет</p>
             </div>
           {:else}
             <div class="overflow-x-auto">
-              <table class="w-full">
-                <thead class="bg-gray-50">
-                  <tr>
-                    <th class="text-left py-3 px-4 text-sm font-semibold text-gray-700">Дата</th>
-                    <th class="text-left py-3 px-4 text-sm font-semibold text-gray-700">Категория</th>
-                    <th class="text-left py-3 px-4 text-sm font-semibold text-gray-700">Описание</th>
-                    <th class="text-right py-3 px-4 text-sm font-semibold text-gray-700">Сумма</th>
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="border-b border-gray-100 bg-gray-50/50">
+                    <th class="py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Дата</th>
+                    <th class="py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Категория</th>
+                    <th class="py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Описание</th>
+                    <th class="text-right py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Сумма</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody class="divide-y divide-gray-100">
                   {#each expenses as expense}
-                    <tr class="border-t border-gray-100 hover:bg-gray-50">
+                    <tr class="hover:bg-gray-50/30 transition-colors">
                       <td class="py-3 px-4 text-sm text-gray-600">
                         {new Date(expense.date).toLocaleDateString('ru-RU')}
                       </td>
-                      <td class="py-3 px-4 text-sm text-gray-900">{expense.category_name}</td>
+                      <td class="py-3 px-4 text-sm font-medium text-gray-900">{expense.category_name}</td>
                       <td class="py-3 px-4 text-sm text-gray-600">{expense.description}</td>
-                      <td class="py-3 px-4 text-sm font-semibold text-gray-900 text-right">
+                      <td class="py-3 px-4 text-sm font-bold text-gray-900 text-right">
                         {formatUtils.formatPrice(Number(expense.amount))}
                       </td>
                     </tr>
@@ -310,58 +320,59 @@
         
       {:else if activeTab === 'cash'}
         <!-- Касса -->
-        <div class="space-y-4">
+        <div class="space-y-6">
           <div class="flex items-center justify-between">
-            <h2 class="text-lg font-semibold text-gray-900">Касса</h2>
+            <h2 class="text-lg font-bold text-gray-900">Касса</h2>
             <button
               onclick={() => showAddTransaction = true}
-              class="btn-primary"
+              class="inline-flex items-center px-4 py-2 bg-gray-900 text-white rounded-xl font-medium hover:bg-gray-800 transition-colors shadow-sm"
             >
-              + Добавить транзакцию
+              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              Добавить транзакцию
             </button>
           </div>
           
           <!-- Баланс -->
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div class="bg-green-50 border border-green-200 rounded-lg p-4">
-              <p class="text-sm text-green-700 mb-1">Приход</p>
-              <p class="text-2xl font-bold text-green-600">{formatUtils.formatPrice(cashBalance.income)}</p>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="bg-green-50 border border-green-100 rounded-2xl p-6">
+              <p class="text-sm font-medium text-green-700 mb-1">Приход</p>
+              <p class="text-2xl font-bold text-green-800">{formatUtils.formatPrice(cashBalance.income)}</p>
             </div>
-            <div class="bg-red-50 border border-red-200 rounded-lg p-4">
-              <p class="text-sm text-red-700 mb-1">Расход</p>
-              <p class="text-2xl font-bold text-red-600">{formatUtils.formatPrice(cashBalance.expense)}</p>
+            <div class="bg-red-50 border border-red-100 rounded-2xl p-6">
+              <p class="text-sm font-medium text-red-700 mb-1">Расход</p>
+              <p class="text-2xl font-bold text-red-800">{formatUtils.formatPrice(cashBalance.expense)}</p>
             </div>
-            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <p class="text-sm text-blue-700 mb-1">Баланс</p>
-              <p class="text-2xl font-bold text-blue-600">{formatUtils.formatPrice(cashBalance.balance)}</p>
+            <div class="bg-blue-50 border border-blue-100 rounded-2xl p-6">
+              <p class="text-sm font-medium text-blue-700 mb-1">Баланс</p>
+              <p class="text-2xl font-bold text-blue-800">{formatUtils.formatPrice(cashBalance.balance)}</p>
             </div>
           </div>
           
           <!-- Транзакции -->
           {#if cashTransactions.length === 0}
-            <div class="text-center py-12 text-gray-500">
-              <p>Транзакций пока нет</p>
+            <div class="text-center py-16 bg-gray-50/50 rounded-xl border border-dashed border-gray-200">
+              <p class="text-gray-500">Транзакций пока нет</p>
             </div>
           {:else}
             <div class="overflow-x-auto">
-              <table class="w-full">
-                <thead class="bg-gray-50">
-                  <tr>
-                    <th class="text-left py-3 px-4 text-sm font-semibold text-gray-700">Дата</th>
-                    <th class="text-left py-3 px-4 text-sm font-semibold text-gray-700">Тип</th>
-                    <th class="text-left py-3 px-4 text-sm font-semibold text-gray-700">Способ</th>
-                    <th class="text-left py-3 px-4 text-sm font-semibold text-gray-700">Описание</th>
-                    <th class="text-right py-3 px-4 text-sm font-semibold text-gray-700">Сумма</th>
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="border-b border-gray-100 bg-gray-50/50">
+                    <th class="py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Дата</th>
+                    <th class="py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Тип</th>
+                    <th class="py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Способ</th>
+                    <th class="py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Описание</th>
+                    <th class="text-right py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Сумма</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody class="divide-y divide-gray-100">
                   {#each cashTransactions as transaction}
-                    <tr class="border-t border-gray-100 hover:bg-gray-50">
+                    <tr class="hover:bg-gray-50/30 transition-colors">
                       <td class="py-3 px-4 text-sm text-gray-600">
                         {new Date(transaction.date).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
                       </td>
                       <td class="py-3 px-4">
-                        <span class="px-2 py-1 text-xs font-medium rounded-full {
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {
                           transaction.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                         }">
                           {transaction.type_display}
@@ -369,7 +380,7 @@
                       </td>
                       <td class="py-3 px-4 text-sm text-gray-600">{transaction.payment_method_display}</td>
                       <td class="py-3 px-4 text-sm text-gray-600">{transaction.description}</td>
-                      <td class="py-3 px-4 text-sm font-semibold text-right {
+                      <td class="py-3 px-4 text-sm font-bold text-right {
                         transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
                       }">
                         {transaction.type === 'income' ? '+' : '-'}{formatUtils.formatPrice(Number(transaction.amount))}
@@ -388,13 +399,18 @@
 
 <!-- Модалка добавления расхода -->
 {#if showAddExpense}
-  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div class="bg-white rounded-xl p-6 w-full max-w-md">
-      <h3 class="text-lg font-semibold text-gray-900 mb-4">Добавить расход</h3>
-      <form onsubmit={(e) => { e.preventDefault(); handleAddExpense(); }} class="space-y-4">
+  <div class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+      <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+        <h3 class="text-lg font-bold text-gray-900">Добавить расход</h3>
+        <button onclick={() => showAddExpense = false} class="text-gray-400 hover:text-gray-600 transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <form onsubmit={(e) => { e.preventDefault(); handleAddExpense(); }} class="p-6 space-y-4">
         <div>
-          <label for="expense-category" class="block text-sm font-medium text-gray-700 mb-2">Категория</label>
-          <select id="expense-category" bind:value={newExpense.category} required class="input w-full">
+          <label for="expense-category" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Категория</label>
+          <select id="expense-category" bind:value={newExpense.category} required class="w-full bg-gray-50 border-transparent focus:bg-white focus:border-gray-300 rounded-xl px-4 py-3 text-sm transition-all shadow-inner cursor-pointer">
             <option value="">Выберите категорию</option>
             {#each expenseCategories as category}
               <option value={category.id}>{category.name}</option>
@@ -402,20 +418,20 @@
           </select>
         </div>
         <div>
-          <label for="expense-amount" class="block text-sm font-medium text-gray-700 mb-2">Сумма</label>
-          <input id="expense-amount" type="number" step="0.01" bind:value={newExpense.amount} required class="input w-full" />
+          <label for="expense-amount" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Сумма</label>
+          <input id="expense-amount" type="number" step="0.01" bind:value={newExpense.amount} required class="w-full bg-gray-50 border-transparent focus:bg-white focus:border-gray-300 rounded-xl px-4 py-3 text-sm transition-all shadow-inner" placeholder="0.00" />
         </div>
         <div>
-          <label for="expense-date" class="block text-sm font-medium text-gray-700 mb-2">Дата</label>
-          <input id="expense-date" type="date" bind:value={newExpense.date} required class="input w-full" />
+          <label for="expense-date" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Дата</label>
+          <input id="expense-date" type="date" bind:value={newExpense.date} required class="w-full bg-gray-50 border-transparent focus:bg-white focus:border-gray-300 rounded-xl px-4 py-3 text-sm transition-all shadow-inner" />
         </div>
         <div>
-          <label for="expense-description" class="block text-sm font-medium text-gray-700 mb-2">Описание</label>
-          <textarea id="expense-description" bind:value={newExpense.description} required class="input w-full" rows="3"></textarea>
+          <label for="expense-description" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Описание</label>
+          <textarea id="expense-description" bind:value={newExpense.description} required class="w-full bg-gray-50 border-transparent focus:bg-white focus:border-gray-300 rounded-xl px-4 py-3 text-sm transition-all shadow-inner resize-none" rows="3" placeholder="Комментарий..."></textarea>
         </div>
-        <div class="flex space-x-3">
-          <button type="submit" class="btn-primary flex-1">Добавить</button>
-          <button type="button" onclick={() => showAddExpense = false} class="btn-outline flex-1">Отмена</button>
+        <div class="flex gap-3 pt-2">
+          <button type="submit" class="flex-1 btn-primary py-2.5 rounded-xl">Добавить</button>
+          <button type="button" onclick={() => showAddExpense = false} class="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 font-medium transition-colors">Отмена</button>
         </div>
       </form>
     </div>
@@ -424,24 +440,29 @@
 
 <!-- Модалка добавления транзакции -->
 {#if showAddTransaction}
-  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div class="bg-white rounded-xl p-6 w-full max-w-md">
-      <h3 class="text-lg font-semibold text-gray-900 mb-4">Добавить транзакцию</h3>
-      <form onsubmit={(e) => { e.preventDefault(); handleAddTransaction(); }} class="space-y-4">
+  <div class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+      <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+        <h3 class="text-lg font-bold text-gray-900">Добавить транзакцию</h3>
+        <button onclick={() => showAddTransaction = false} class="text-gray-400 hover:text-gray-600 transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <form onsubmit={(e) => { e.preventDefault(); handleAddTransaction(); }} class="p-6 space-y-4">
         <div>
-          <label for="transaction-type" class="block text-sm font-medium text-gray-700 mb-2">Тип</label>
-          <select id="transaction-type" bind:value={newTransaction.type} required class="input w-full">
+          <label for="transaction-type" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Тип</label>
+          <select id="transaction-type" bind:value={newTransaction.type} required class="w-full bg-gray-50 border-transparent focus:bg-white focus:border-gray-300 rounded-xl px-4 py-3 text-sm transition-all shadow-inner cursor-pointer">
             <option value="income">Приход</option>
             <option value="expense">Расход</option>
           </select>
         </div>
         <div>
-          <label for="transaction-amount" class="block text-sm font-medium text-gray-700 mb-2">Сумма</label>
-          <input id="transaction-amount" type="number" step="0.01" bind:value={newTransaction.amount} required class="input w-full" />
+          <label for="transaction-amount" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Сумма</label>
+          <input id="transaction-amount" type="number" step="0.01" bind:value={newTransaction.amount} required class="w-full bg-gray-50 border-transparent focus:bg-white focus:border-gray-300 rounded-xl px-4 py-3 text-sm transition-all shadow-inner" placeholder="0.00" />
         </div>
         <div>
-          <label for="transaction-payment-method" class="block text-sm font-medium text-gray-700 mb-2">Способ оплаты</label>
-          <select id="transaction-payment-method" bind:value={newTransaction.payment_method} required class="input w-full">
+          <label for="transaction-payment-method" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Способ оплаты</label>
+          <select id="transaction-payment-method" bind:value={newTransaction.payment_method} required class="w-full bg-gray-50 border-transparent focus:bg-white focus:border-gray-300 rounded-xl px-4 py-3 text-sm transition-all shadow-inner cursor-pointer">
             <option value="cash">Наличные</option>
             <option value="card">Карта</option>
             <option value="bank_transfer">Банковский перевод</option>
@@ -449,15 +470,14 @@
           </select>
         </div>
         <div>
-          <label for="transaction-description" class="block text-sm font-medium text-gray-700 mb-2">Описание</label>
-          <textarea id="transaction-description" bind:value={newTransaction.description} required class="input w-full" rows="3"></textarea>
+          <label for="transaction-description" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Описание</label>
+          <textarea id="transaction-description" bind:value={newTransaction.description} required class="w-full bg-gray-50 border-transparent focus:bg-white focus:border-gray-300 rounded-xl px-4 py-3 text-sm transition-all shadow-inner resize-none" rows="3" placeholder="Комментарий..."></textarea>
         </div>
-        <div class="flex space-x-3">
-          <button type="submit" class="btn-primary flex-1">Добавить</button>
-          <button type="button" onclick={() => showAddTransaction = false} class="btn-outline flex-1">Отмена</button>
+        <div class="flex gap-3 pt-2">
+          <button type="submit" class="flex-1 btn-primary py-2.5 rounded-xl">Добавить</button>
+          <button type="button" onclick={() => showAddTransaction = false} class="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 font-medium transition-colors">Отмена</button>
         </div>
       </form>
     </div>
   </div>
 {/if}
-

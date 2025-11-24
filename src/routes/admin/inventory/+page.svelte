@@ -1,6 +1,7 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
-  import { partsApi, formatUtils, brandsApi, warehousesApi, stockApi, API_BASE_URL } from '$lib/utils/api.js';
+  import { partsApi, formatUtils, brandsApi, warehousesApi, stockApi, imageUtils } from '$lib/utils/api.js';
+  import { toastStore } from '$lib/stores/toast.js';
   import ProductEditModal from '$lib/components/admin/ProductEditModal.svelte';
   import AddProductModal from '$lib/components/admin/AddProductModal.svelte';
   
@@ -44,7 +45,6 @@
       if (filters.brand) baseParams.brand = filters.brand;
       if (filters.warehouse) baseParams.warehouse = filters.warehouse;
 
-      // Загружаем все страницы по 1000 штук, чтобы корректно отсортировать по резерву
       let allResults = [];
       let page = 1;
       let hasMore = true;
@@ -69,10 +69,7 @@
         page += 1;
       }
       
-      // Сортируем товары: сначала товары с резервом (reserve > 0), затем остальные
-      // Внутри каждой группы сортируем по резерву (по убыванию), затем по доступному количеству
       const sortedParts = (allResults || []).map(part => {
-        // Явное преобразование в числа с проверкой
         const stock = part.stock !== null && part.stock !== undefined ? Number(part.stock) : 0;
         const reserve = part.reserve !== null && part.reserve !== undefined ? Number(part.reserve) : 0;
         const available = part.available !== null && part.available !== undefined ? Number(part.available) : 0;
@@ -89,17 +86,14 @@
         const aAvailable = a.available;
         const bAvailable = b.available;
         
-        // Товары с резервом идут первыми
         if (aReserve > 0 && bReserve === 0) return -1;
         if (aReserve === 0 && bReserve > 0) return 1;
         
-        // Если оба в резерве, сортируем по резерву (по убыванию), затем по доступному количеству
         if (aReserve > 0 && bReserve > 0) {
           if (bReserve !== aReserve) return bReserve - aReserve;
           return bAvailable - aAvailable;
         }
         
-        // Если оба не в резерве, сортируем по доступному количеству (по убыванию)
         return bAvailable - aAvailable;
       });
 
@@ -107,19 +101,9 @@
       visibleCount = Math.min(100, allParts.length);
       parts = allParts.slice(0, visibleCount);
       
-      // Отладочное логирование (удалить в production)
-      if (sortedParts.length > 0) {
-        console.log('Загружено товаров:', sortedParts.length);
-        console.log('Пример товара:', {
-          id: sortedParts[0].id,
-          title: sortedParts[0].title,
-          stock: sortedParts[0].stock,
-          reserve: sortedParts[0].reserve,
-          available: sortedParts[0].available
-        });
-      }
     } catch (error) {
       console.error('Ошибка загрузки товаров:', error);
+      toastStore.error('Ошибка загрузки товаров');
     } finally {
       isLoading = false;
     }
@@ -203,13 +187,16 @@
       isImporting = true;
       const result = await partsApi.importFromExcel(file);
       
-      alert(`✅ Импорт завершён!\n\nСоздано: ${result.created}\nОбновлено: ${result.updated}\n${result.errors.length > 0 ? `\n⚠️ Ошибки:\n${result.errors.join('\n')}` : ''}`);
+      toastStore.success(`Импорт завершён! Создано: ${result.created}, Обновлено: ${result.updated}`);
+      if (result.errors.length > 0) {
+        toastStore.warning(`Есть ошибки импорта (${result.errors.length})`);
+      }
       
       showImportModal = false;
       loadParts();
     } catch (error) {
       console.error('Error importing:', error);
-      alert('Ошибка импорта файла');
+      toastStore.error('Ошибка импорта файла');
     } finally {
       isImporting = false;
     }
@@ -219,7 +206,6 @@
     window.open('/api/parts/template', '_blank');
   }
 
-  // Пересчёт остатков по заказам
   async function handleRecalculateStock() {
     if (!confirm('Пересчитать резерв и доступные остатки по всем товарам на основе заказов?')) {
       return;
@@ -230,23 +216,21 @@
       const response = await stockApi.recalculateFromOrders();
 
       if (response.success === false) {
-        alert(response.error || 'Ошибка пересчёта остатков');
+        toastStore.error(response.error || 'Ошибка пересчёта остатков');
       } else {
-        alert('Остатки успешно пересчитаны по заказам');
+        toastStore.success('Остатки успешно пересчитаны по заказам');
         await loadParts();
       }
     } catch (error) {
       console.error('Ошибка пересчёта остатков:', error);
-      alert('Ошибка пересчёта остатков. Попробуйте позже.');
+      toastStore.error('Ошибка пересчёта остатков');
     } finally {
       isRecalculatingStock = false;
     }
   }
   
-  // Экспорт в CSV
   async function exportToCSV() {
     try {
-      // Формируем CSV
       let csv = 'ID;Название;Артикул;Бренд;Склад;На складе;Резерв;Доступно;Цена\n';
       parts.forEach(part => {
         csv += `${part.id};${part.title};${part.original_number || part.manufacturer_number || ''};${part.brand_name};${part.warehouse_name};${part.stock};${part.reserve};${part.available};${part.price_opt}\n`;
@@ -259,7 +243,7 @@
       link.click();
     } catch (error) {
       console.error('Ошибка экспорта:', error);
-      alert('Ошибка экспорта остатков');
+      toastStore.error('Ошибка экспорта остатков');
     }
   }
   
@@ -269,7 +253,6 @@
     loadReferences();
     loadParts();
 
-    // Автообновление списка остатков каждые 5 минут
     refreshIntervalId = setInterval(() => {
       loadParts();
     }, 300000);
@@ -288,91 +271,78 @@
   <title>Остатки склада - Admin</title>
 </svelte:head>
 
-<div class="space-y-4 sm:space-y-6 w-full">
+<div class="space-y-6 w-full">
   <!-- Заголовок -->
-  <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+  <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
     <div>
-      <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">Остатки склада</h1>
-      <p class="text-sm sm:text-base text-gray-600 mt-1 sm:mt-2">Управление товарами и остатками</p>
+      <h1 class="text-3xl font-bold text-gray-900 tracking-tight">Остатки склада</h1>
+      <p class="text-gray-500 mt-2">Управление товарами и остатками</p>
     </div>
-    <div class="flex flex-wrap gap-2 sm:space-x-3">
+    <div class="flex flex-wrap gap-3">
       <button
         onclick={handleImportExcel}
-        class="btn-outline flex items-center text-sm"
+        class="inline-flex items-center px-4 py-2 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 bg-white hover:bg-gray-50 hover:text-gray-900 transition-colors"
       >
-        <svg class="w-4 h-4 sm:w-5 sm:h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
         </svg>
-        <span class="hidden sm:inline">Импорт из Excel</span>
-        <span class="sm:hidden">Импорт</span>
+        Импорт Excel
       </button>
       
       <button
-        onclick={handleAddProduct}
-        class="btn-primary flex items-center text-sm"
+        onclick={handleRecalculateStock}
+        disabled={isRecalculatingStock}
+        class="inline-flex items-center px-4 py-2 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 bg-white hover:bg-gray-50 hover:text-gray-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        <svg class="w-4 h-4 sm:w-5 sm:h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+        <svg class={`w-4 h-4 mr-2 ${isRecalculatingStock ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
         </svg>
-        <span class="hidden sm:inline">Добавить товар</span>
-        <span class="sm:hidden">Добавить</span>
+        Обновить
       </button>
 
       <button
-        onclick={handleRecalculateStock}
-        class="btn-outline flex items-center text-sm disabled:opacity-60 disabled:cursor-not-allowed"
-        disabled={isRecalculatingStock}
+        onclick={handleAddProduct}
+        class="inline-flex items-center px-4 py-2 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800 transition-colors shadow-sm"
       >
-        <svg
-          class={`w-4 h-4 sm:w-5 sm:h-5 mr-2 ${isRecalculatingStock ? 'animate-spin' : ''}`}
-          viewBox="0 0 24 24"
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          stroke="currentColor"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-          />
+        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
         </svg>
-        <span class="hidden sm:inline">
-          Обновить
-        </span>
-        <span class="sm:hidden">
-          Обновить
-        </span>
+        Добавить товар
       </button>
     </div>
   </div>
   
   <!-- Фильтры -->
-  <div class="bg-white rounded-xl shadow-sm p-4 sm:p-6">
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
       <div class="lg:col-span-2">
-        <label for="search" class="block text-sm font-medium text-gray-700 mb-2">
+        <label for="search" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
           Поиск товара
         </label>
-        <input
-          type="text"
-          id="search"
-          bind:value={filters.search}
-          onchange={handleFilterChange}
-          class="input w-full"
-          placeholder="Название, артикул, бренд..."
-        />
+        <div class="relative">
+          <input
+            type="text"
+            id="search"
+            bind:value={filters.search}
+            onchange={handleFilterChange}
+            class="w-full bg-gray-50 border-transparent focus:bg-white focus:border-gray-300 rounded-xl px-4 py-3 pl-10 text-sm transition-all shadow-inner"
+            placeholder="Название, артикул, бренд..."
+          />
+          <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+          </div>
+        </div>
       </div>
       
       <div>
-        <label for="brand" class="block text-sm font-medium text-gray-700 mb-2">
+        <label for="brand" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
           Бренд
         </label>
         <select
           id="brand"
           bind:value={filters.brand}
           onchange={handleFilterChange}
-          class="input w-full"
+          class="w-full bg-gray-50 border-transparent focus:bg-white focus:border-gray-300 rounded-xl px-4 py-3 text-sm transition-all shadow-inner cursor-pointer"
         >
           <option value="">Все бренды</option>
           {#each brands as brand}
@@ -382,14 +352,14 @@
       </div>
       
       <div>
-        <label for="warehouse" class="block text-sm font-medium text-gray-700 mb-2">
+        <label for="warehouse" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
           Склад
         </label>
         <select
           id="warehouse"
           bind:value={filters.warehouse}
           onchange={handleFilterChange}
-          class="input w-full"
+          class="w-full bg-gray-50 border-transparent focus:bg-white focus:border-gray-300 rounded-xl px-4 py-3 text-sm transition-all shadow-inner cursor-pointer"
         >
           <option value="">Все склады</option>
           {#each warehouses as warehouse}
@@ -399,14 +369,14 @@
       </div>
       
       <div>
-        <label for="stock_filter" class="block text-sm font-medium text-gray-700 mb-2">
+        <label for="stock_filter" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
           Остатки
         </label>
         <select
           id="stock_filter"
           bind:value={filters.stock_filter}
           onchange={handleFilterChange}
-          class="input w-full"
+          class="w-full bg-gray-50 border-transparent focus:bg-white focus:border-gray-300 rounded-xl px-4 py-3 text-sm transition-all shadow-inner cursor-pointer"
         >
           {#each stockFilterOptions as option}
             <option value={option.value}>{option.label}</option>
@@ -416,10 +386,10 @@
     </div>
     
     <!-- Кнопка экспорта -->
-    <div class="mt-4 flex justify-end">
+    <div class="mt-6 flex justify-end">
       <button
         onclick={exportToCSV}
-        class="btn-outline flex items-center"
+        class="inline-flex items-center px-4 py-2 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 bg-white hover:bg-gray-50 hover:text-gray-900 transition-colors"
       >
         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -430,95 +400,87 @@
   </div>
   
   <!-- Таблица товаров -->
-  <div class="bg-white rounded-xl shadow-sm overflow-hidden w-full">
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden w-full">
     {#if isLoading}
-      <div class="p-8 text-center">
-        <div class="animate-spin w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full mx-auto"></div>
-        <p class="text-gray-600 mt-4">Загрузка товаров...</p>
+      <div class="p-12 text-center">
+        <div class="animate-spin w-8 h-8 border-4 border-gray-200 border-t-gray-900 rounded-full mx-auto"></div>
+        <p class="text-gray-500 mt-4 font-medium">Загрузка товаров...</p>
       </div>
     {:else if parts.length > 0}
       <div class="overflow-x-auto">
-        <table class="w-full table-auto">
-          <thead class="bg-gray-50">
-            <tr>
-              <th class="text-left py-3 px-3 text-xs font-semibold text-gray-700">Товар</th>
-              <th class="hidden md:table-cell text-left py-3 px-3 text-xs font-semibold text-gray-700">Артикул</th>
-              <th class="hidden md:table-cell text-left py-3 px-3 text-xs font-semibold text-gray-700">Бренд</th>
-              <th class="hidden md:table-cell text-left py-3 px-3 text-xs font-semibold text-gray-700">Склад</th>
-              <th class="hidden md:table-cell text-center py-3 px-2 text-xs font-semibold text-gray-700">На скл.</th>
-              <th class="hidden md:table-cell text-center py-3 px-2 text-xs font-semibold text-gray-700">Резерв</th>
-              <th class="hidden md:table-cell text-center py-3 px-2 text-xs font-semibold text-gray-700">Доступ.</th>
-              <th class="hidden md:table-cell text-right py-3 px-3 text-xs font-semibold text-gray-700">Цена</th>
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-gray-100 bg-gray-50/50">
+              <th class="py-4 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Товар</th>
+              <th class="hidden md:table-cell py-4 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Артикул</th>
+              <th class="hidden md:table-cell py-4 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Бренд</th>
+              <th class="hidden md:table-cell py-4 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Склад</th>
+              <th class="hidden md:table-cell text-center py-4 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">На скл.</th>
+              <th class="hidden md:table-cell text-center py-4 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Резерв</th>
+              <th class="hidden md:table-cell text-center py-4 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Доступ.</th>
+              <th class="hidden md:table-cell text-right py-4 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Цена</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody class="divide-y divide-gray-100">
             {#each parts as part}
-              <tr class="border-t border-gray-100 hover:bg-gray-50 cursor-pointer {(part.reserve || 0) > 0 ? 'bg-orange-50 hover:bg-orange-100' : ''}" onclick={() => handlePartClick(part)}>
-                <td class="py-3 px-3 max-w-[300px]">
-                  <div class="flex items-center space-x-2">
-                    {#if part.images && part.images.length > 0 && part.images[0].image_url}
-                      <img src={part.images[0].image_url} alt={part.title} class="w-10 h-10 object-cover rounded-lg flex-shrink-0" />
-                    {:else}
-                      <div class="w-10 h-10 bg-gray-200 rounded-lg flex-shrink-0"></div>
-                    {/if}
+              {@const imageUrl = part.images && part.images.length > 0 && part.images[0].image_url ? imageUtils.getAbsoluteUrl(part.images[0].image_url) : null}
+              <tr class="hover:bg-gray-50/30 transition-colors cursor-pointer {(part.reserve || 0) > 0 ? 'bg-orange-50/30' : ''}" onclick={() => handlePartClick(part)}>
+                <td class="py-4 px-6 max-w-[300px]">
+                  <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-lg bg-gray-100 flex-shrink-0 overflow-hidden border border-gray-200">
+                      {#if imageUrl}
+                        <img src={imageUrl} alt={part.title} class="w-full h-full object-cover" />
+                      {:else}
+                        <div class="w-full h-full flex items-center justify-center text-gray-400">
+                          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                        </div>
+                      {/if}
+                    </div>
                     <div class="flex-1 min-w-0">
-                      <p class="text-xs font-medium text-primary-600 hover:text-primary-700 line-clamp-2 leading-tight">{part.title}</p>
+                      <p class="text-sm font-medium text-gray-900 line-clamp-2">{part.title}</p>
                       {#if (part.reserve || 0) > 0}
-                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800 mt-1">
+                        <span class="inline-flex items-center mt-1 text-xs font-medium text-orange-600 bg-orange-50 px-2 py-0.5 rounded-md">
                           В резерве: {part.reserve || 0} шт.
                         </span>
                       {/if}
                     </div>
                   </div>
                 </td>
-                <td class="hidden md:table-cell py-3 px-3">
-                  <span class="font-mono text-xs text-gray-600 break-all">
+                <td class="hidden md:table-cell py-4 px-6">
+                  <span class="font-mono text-xs text-gray-600 bg-gray-50 px-2 py-1 rounded-md border border-gray-100">
                     {part.original_number || part.manufacturer_number || '-'}
                   </span>
                 </td>
-                <td class="hidden md:table-cell py-3 px-3 text-xs text-gray-600">{part.brand_name || '-'}</td>
-                <td class="hidden md:table-cell py-3 px-3 text-xs text-gray-600 max-w-[150px]">
-                  <span class="line-clamp-2 leading-tight">{part.warehouse_name || '-'}</span>
+                <td class="hidden md:table-cell py-4 px-6 text-sm text-gray-600">{part.brand_name || '-'}</td>
+                <td class="hidden md:table-cell py-4 px-6 text-sm text-gray-600 max-w-[150px]">
+                  <span class="truncate block" title={part.warehouse_name}>{part.warehouse_name || '-'}</span>
                 </td>
-                <td class="hidden md:table-cell py-3 px-2 text-xs text-center">
-                  <span class="font-medium text-gray-900 whitespace-nowrap">
-                    {part.stock !== null && part.stock !== undefined ? part.stock : 0} шт.
-                  </span>
+                <td class="hidden md:table-cell py-4 px-4 text-sm text-center font-medium text-gray-900">
+                  {part.stock !== null && part.stock !== undefined ? part.stock : 0}
                 </td>
-                <td class="hidden md:table-cell py-3 px-2 text-xs text-center">
-                  <div class="flex flex-col items-center">
-                    {#if (part.reserve || 0) > 0}
-                      <span class="font-semibold whitespace-nowrap text-orange-700">
-                        {part.reserve || 0} шт.
-                      </span>
-                      <span class="text-xs text-orange-600 mt-0.5" title="Товар в резерве">⚠️</span>
-                    {:else}
-                      <span class="font-semibold whitespace-nowrap text-gray-700">
-                        {part.reserve || 0} шт.
-                      </span>
-                    {/if}
-                  </div>
+                <td class="hidden md:table-cell py-4 px-4 text-sm text-center">
+                  {#if (part.reserve || 0) > 0}
+                    <span class="font-bold text-orange-600">{part.reserve || 0}</span>
+                  {:else}
+                    <span class="text-gray-400">-</span>
+                  {/if}
                 </td>
-                <td class="hidden md:table-cell py-3 px-2 text-center">
+                <td class="hidden md:table-cell py-4 px-4 text-center">
                   {#if (part.available || 0) === 0}
-                    <span class="text-xs font-semibold whitespace-nowrap text-red-600">
-                      {part.available || 0} шт.
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                      0
                     </span>
                   {:else if (part.available || 0) <= 3}
-                    <span class="text-xs font-semibold whitespace-nowrap text-orange-600">
-                      {part.available || 0} шт.
-                    </span>
-                  {:else if (part.available || 0) <= 10}
-                    <span class="text-xs font-semibold whitespace-nowrap text-yellow-600">
-                      {part.available || 0} шт.
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                      {part.available || 0}
                     </span>
                   {:else}
-                    <span class="text-xs font-semibold whitespace-nowrap text-green-600">
-                      {part.available || 0} шт.
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                      {part.available || 0}
                     </span>
                   {/if}
                 </td>
-                <td class="hidden md:table-cell py-3 px-3 text-xs font-medium text-gray-900 text-right whitespace-nowrap">
+                <td class="hidden md:table-cell py-4 px-6 text-sm font-bold text-gray-900 text-right whitespace-nowrap">
                   {formatUtils.formatPrice(Number(part.price_opt) || 0)}
                 </td>
               </tr>
@@ -527,21 +489,23 @@
         </table>
       </div>
     {:else}
-      <div class="p-12 text-center">
-        <svg class="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-        </svg>
-        <h3 class="text-lg font-semibold text-gray-900 mb-2">Товары не найдены</h3>
-        <p class="text-gray-600">Попробуйте изменить параметры поиска</p>
+      <div class="p-16 text-center">
+        <div class="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6">
+          <svg class="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+          </svg>
+        </div>
+        <h3 class="text-lg font-bold text-gray-900 mb-2">Товары не найдены</h3>
+        <p class="text-gray-500 max-w-sm mx-auto">Попробуйте изменить параметры поиска или фильтры.</p>
       </div>
     {/if}
   </div>
   
   <!-- Итого -->
   {#if !isLoading}
-    <div class="bg-white rounded-xl shadow-sm p-6">
-      <p class="text-sm text-gray-600">
-        Отображено товаров: <span class="font-semibold text-gray-900">{parts.length}</span>
+    <div class="bg-white rounded-2xl shadow-sm p-4 border border-gray-100 flex justify-between items-center">
+      <p class="text-sm text-gray-500">
+        Отображено: <span class="font-semibold text-gray-900">{parts.length}</span> из <span class="font-semibold text-gray-900">{allParts.length}</span>
       </p>
     </div>
   {/if}
@@ -567,7 +531,7 @@
 <!-- Модальное окно импорта из Excel -->
 {#if showImportModal}
   <div 
-    class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" 
+    class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" 
     onclick={() => showImportModal = false}
     onkeydown={(e) => e.key === 'Escape' && (showImportModal = false)}
     role="dialog"
@@ -578,46 +542,49 @@
     <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <div 
-      class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full" 
+      class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden" 
       onclick={(e) => e.stopPropagation()}
       role="region"
       aria-label="Содержимое модального окна"
       tabindex="0"
     >
-      <div class="p-6 border-b border-gray-200">
-        <h2 class="text-2xl font-bold text-gray-900">Импорт товаров из Excel</h2>
-        <p class="text-sm text-gray-600 mt-2">Загрузите Excel файл с товарами для массового импорта</p>
+      <div class="p-6 border-b border-gray-100">
+        <h2 class="text-xl font-bold text-gray-900">Импорт товаров из Excel</h2>
+        <p class="text-sm text-gray-500 mt-1">Загрузите Excel файл с товарами для массового импорта</p>
       </div>
       
       <div class="p-6 space-y-6">
         <!-- Инструкция -->
-        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h3 class="text-sm font-semibold text-blue-900 mb-2">📋 Формат файла</h3>
+        <div class="bg-blue-50 border border-blue-100 rounded-xl p-4">
+          <h3 class="text-sm font-bold text-blue-900 mb-2 flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            Формат файла
+          </h3>
           <div class="text-xs text-blue-800 space-y-1">
             <p><strong>Колонки (по порядку):</strong></p>
-            <ul class="list-disc list-inside ml-2 space-y-1">
+            <ul class="list-disc list-inside ml-2 space-y-1 opacity-80">
               <li><strong>A:</strong> Название товара (обязательно)</li>
-              <li><strong>B:</strong> Артикул (если указан - товар обновится, иначе создастся новый)</li>
-              <li><strong>C:</strong> Бренд (создастся автоматически если не существует)</li>
-              <li><strong>D:</strong> Склад (создастся автоматически если не существует)</li>
-              <li><strong>E:</strong> Количество на складе</li>
+              <li><strong>B:</strong> Артикул</li>
+              <li><strong>C:</strong> Бренд</li>
+              <li><strong>D:</strong> Склад</li>
+              <li><strong>E:</strong> Количество</li>
               <li><strong>F:</strong> Цена продажи (₽)</li>
-              <li><strong>G:</strong> Себестоимость (₽, опционально)</li>
+              <li><strong>G:</strong> Себестоимость (₽)</li>
             </ul>
           </div>
         </div>
         
         <!-- Шаблон -->
-        <div class="bg-gray-50 rounded-lg p-4">
-          <p class="text-sm text-gray-700 mb-3">
-            <strong>💡 Совет:</strong> Скачайте шаблон Excel с примерами данных
+        <div class="bg-gray-50 rounded-xl p-4 border border-gray-100">
+          <p class="text-sm text-gray-600 mb-3 font-medium">
+            Рекомендуем использовать готовый шаблон:
           </p>
           <button
             onclick={downloadTemplate}
-            class="btn-outline w-full flex items-center justify-center"
+            class="w-full py-2.5 px-4 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors flex items-center justify-center shadow-sm"
           >
-            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            <svg class="w-4 h-4 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
             Скачать шаблон Excel
           </button>
@@ -625,35 +592,42 @@
         
         <!-- Загрузка файла -->
         <div>
-          <label for="excel-file-input" class="block text-sm font-medium text-gray-700 mb-2">Выберите Excel файл</label>
-          <input 
-            id="excel-file-input"
-            type="file" 
-            accept=".xlsx,.xls"
-            onchange={handleFileImport}
-            disabled={isImporting}
-            class="block w-full text-sm text-gray-500
-              file:mr-4 file:py-2 file:px-4
-              file:rounded-lg file:border-0
-              file:text-sm file:font-semibold
-              file:bg-primary-50 file:text-primary-700
-              hover:file:bg-primary-100
-              disabled:opacity-50"
-          />
+          <label for="excel-file-input" class="block text-sm font-medium text-gray-700 mb-2">Выберите файл</label>
+          <div class="relative">
+            <input 
+              id="excel-file-input"
+              type="file" 
+              accept=".xlsx,.xls"
+              onchange={handleFileImport}
+              disabled={isImporting}
+              class="block w-full text-sm text-gray-500
+                file:mr-4 file:py-2.5 file:px-4
+                file:rounded-xl file:border-0
+                file:text-sm file:font-semibold
+                file:bg-gray-900 file:text-white
+                hover:file:bg-gray-800
+                file:transition-colors
+                disabled:opacity-50 cursor-pointer"
+            />
+          </div>
         </div>
         
         {#if isImporting}
-          <div class="flex items-center justify-center py-8">
-            <div class="animate-spin w-10 h-10 border-4 border-primary-500 border-t-transparent rounded-full mr-3"></div>
-            <span class="text-gray-600 font-medium">Импортирование товаров...</span>
+          <div class="flex items-center justify-center py-4 text-gray-600">
+            <div class="animate-spin w-5 h-5 border-2 border-gray-900 border-t-transparent rounded-full mr-3"></div>
+            <span class="text-sm font-medium">Импортирование товаров...</span>
           </div>
         {/if}
       </div>
       
-      <div class="p-6 border-t border-gray-200 flex justify-end">
-        <button onclick={() => showImportModal = false} class="btn-outline">Закрыть</button>
+      <div class="p-6 border-t border-gray-100 flex justify-end bg-gray-50">
+        <button 
+          onclick={() => showImportModal = false} 
+          class="px-6 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 bg-white hover:bg-gray-50 hover:text-gray-900 transition-colors shadow-sm"
+        >
+          Закрыть
+        </button>
       </div>
     </div>
   </div>
 {/if}
-
