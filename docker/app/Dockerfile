@@ -75,6 +75,9 @@ COPY --from=builder /app/build ./build
 # Копируем static файлы
 COPY static ./static
 
+# Копируем скрипты для инициализации
+COPY scripts ./scripts
+
 # Создаем пользователя для безопасности
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nodejs -u 1001 && \
